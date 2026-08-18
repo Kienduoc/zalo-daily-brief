@@ -79,7 +79,21 @@ export async function backfillRange(api, { fromTs, toTs, accountId = null, onPro
   }
   if (!ids.length) return { ok: true, groups: 0, added: 0, ms: 0 };
 
-  // 2) Ten nhom (goi theo lo)
+  // 2) Kiem tra endpoint lich su con song khong (Zalo da bo /api/group/history)
+  //    Thu 1 nhom truoc: neu 404 thi dung ngay, khong quet 331 nhom vo ich.
+  try {
+    await api.getGroupChatHistory(ids[0], 10);
+  } catch (e) {
+    const msg = String(e?.message || e);
+    if (msg.includes("404")) {
+      return {
+        ok: true, unavailable: true, groups: 0, added: 0, ms: Date.now() - t0,
+        note: "Zalo hiện không cho lấy lịch sử tin nhắn cũ (endpoint trả 404). Chỉ tóm tắt được tin phần mềm đã thu.",
+      };
+    }
+  }
+
+  // 3) Ten nhom (goi theo lo)
   const names = await fetchGroupNames(api, ids);
 
   // 3) Quet lich su tung nhom, chay song song co gioi han

@@ -15,6 +15,7 @@ import { runRangeReport } from "./reportCore.js";
 import { loadState, dateKey } from "./storage.js";
 import { scanAccount } from "./accountScan.js";
 import { backfillRange } from "./backfill.js";
+import { probeGroupHistory, probeUserHistory, probeGroupPaths, probeControl } from "./zaloRaw.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -378,6 +379,24 @@ app.post("/api/ai/logout", (req, res) => {
   execFile(isClaude ? CLAUDE_CMD : CODEX_CMD, isClaude ? ["auth", "logout"] : ["logout"], { shell: true, windowsHide: true, timeout: 30_000 }, async () => {
     res.json({ ok: true, ai: await checkAiStatus() });
   });
+});
+
+// CHAN DOAN: do kha nang lay lich su (nhom + ca nhan) — dung de hieu chinh
+app.post("/api/diag/history", async (req, res) => {
+  if (!apiInstance) return res.status(400).json({ ok: false, note: "Chưa kết nối Zalo." });
+  try {
+    const st = loadState();
+    const ids = Object.keys(st.groups || {});
+    const gid = req.body?.groupId || ids.find((id) => !String(st.groups[id]).startsWith("[Ca nhan]"));
+    const uid = req.body?.userId || null;
+    const out = { groupId: gid, userId: uid };
+    if (gid) out.doiChung = await probeControl(apiInstance, gid);
+    if (gid) out.nhom = req.body?.paths ? { ketQua: await probeGroupPaths(apiInstance, gid) } : await probeGroupHistory(apiInstance, gid);
+    if (uid) out.caNhan = await probeUserHistory(apiInstance, uid);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    res.status(500).json({ ok: false, note: String(e?.message || e) });
+  }
 });
 
 // Keo lich su nhom ve theo khoang thoi gian (chay tay)
