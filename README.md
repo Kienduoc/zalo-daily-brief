@@ -6,7 +6,19 @@ bằng nút bấm và brief tự động 18:00.
 
 **© 2026 Nguyễn Đức Kiên — 0981689892. Nghiêm cấm sao chép dưới mọi hình thức.**
 
-## Cài sang máy mới (3 bước)
+## Cách 1 — Cài bằng file .exe (khuyên dùng, cho người không rành máy tính)
+
+Chỉ cần **một file duy nhất**: `ThuKyAIZalo-Setup.exe`
+
+1. Đúp chuột vào file cài đặt → bấm Next → Install.
+2. Xong. Biểu tượng "Thu Ky AI Zalo" hiện ngoài màn hình, đúp vào là chạy.
+
+Bộ cài đã gói sẵn **Node.js + toàn bộ thư viện** — máy trắng không cài gì cũng chạy được,
+không cần quyền quản trị (cài vào thư mục người dùng).
+
+Đóng gói lại sau khi sửa code: chạy `build\DongGoi.bat` (cần [Inno Setup 6](https://jrsoftware.org/isdl.php)).
+
+## Cách 2 — Cài từ mã nguồn (cho người biết kỹ thuật)
 
 1. Chép cả thư mục này sang máy mới (KHÔNG cần chép `node_modules`, `data`, `logs`).
 2. Đúp chuột **`CaiDat.bat`** — tự kiểm tra Node.js, cài thư viện, tạo cấu hình.

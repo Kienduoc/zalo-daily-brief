@@ -8,3 +8,7 @@ qr.png
 # Node
 node_modules/
 npm-debug.log*
+
+# San pham dong goi (tao lai bang build/DongGoi.bat)
+build/payload/
+build/out/
