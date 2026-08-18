@@ -1,0 +1,10 @@
+# Bi mat & du lieu noi bo - TUYET DOI KHONG commit
+.env
+data/
+logs/
+qr.png
+*.log
+
+# Node
+node_modules/
+npm-debug.log*

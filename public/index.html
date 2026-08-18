@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thư ký AI Zalo</title>
+<style>
+  :root { --green:#6CB545; --blue:#00AEEF; --bg:#f4f6f3; --card:#fff; --text:#1e2a1a; --muted:#6b7566; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI",Arial,sans-serif; background:var(--bg); color:var(--text); }
+  header { background:linear-gradient(90deg,var(--green),#4e9430); color:#fff; padding:18px 24px; display:flex; align-items:center; justify-content:space-between; gap:14px; }
+  .hleft { display:flex; align-items:center; gap:14px; }
+  .hprofile { display:flex; align-items:center; gap:12px; }
+  .hprofile img { width:46px; height:46px; border-radius:50%; border:2.5px solid #fff; object-fit:cover; background:#dde7d6; }
+  .hprofile .pname { font-weight:700; font-size:15px; }
+  .hprofile .pphone { font-size:12.5px; color:#eaf6e2; }
+  header h1 { font-size:22px; margin:0; font-weight:700; }
+  .dot { width:14px; height:14px; border-radius:50%; background:#ccc; box-shadow:0 0 0 3px rgba(255,255,255,.35); }
+  .dot.on { background:#b5ff8a; } .dot.wait { background:#ffd764; } .dot.err { background:#ff8a8a; }
+  .status-text { font-size:14px; opacity:.95; }
+  main { max-width:860px; margin:24px auto; padding:0 16px; display:grid; gap:20px; }
+  .card { background:var(--card); border-radius:16px; box-shadow:0 2px 10px rgba(0,0,0,.06); padding:22px; }
+  .card h2 { margin:0 0 6px; font-size:18px; color:var(--green); }
+  .card p.hint { margin:0 0 14px; color:var(--muted); font-size:14px; }
+  button { border:0; border-radius:12px; padding:14px 22px; font-size:16px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.55; cursor:default; }
+  .btn-primary { background:var(--green); color:#fff; }
+  .btn-primary:hover:not(:disabled) { background:#5aa437; }
+  .btn-blue { background:var(--blue); color:#fff; }
+  .btn-ghost { background:#eef3ea; color:var(--text); font-weight:500; padding:10px 14px; font-size:14px; }
+  .qr-box { text-align:center; padding:10px; }
+  .qr-box img { width:240px; height:240px; border:6px solid #eef3ea; border-radius:12px; }
+  .steps { text-align:left; display:inline-block; margin:10px auto 0; color:var(--muted); font-size:14px; line-height:1.9; }
+  .stats { display:flex; gap:14px; flex-wrap:wrap; margin-top:12px; }
+  .stat { background:#f2f7ee; border-radius:12px; padding:12px 18px; min-width:120px; }
+  .stat b { display:block; font-size:22px; color:var(--green); }
+  .stat span { font-size:13px; color:var(--muted); }
+  .scanline { display:flex; align-items:center; gap:10px; margin-top:12px; font-size:13px; color:var(--muted); flex-wrap:wrap; }
+  .quick { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  .range { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin-bottom:16px; }
+  .range label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
+  .range input { padding:10px 12px; border:1.5px solid #d7e0d2; border-radius:10px; font-size:15px; font-family:inherit; }
+  .result { margin-top:14px; padding:14px; border-radius:12px; background:#f2f7ee; display:none; }
+  .result a { color:#2c7a10; font-weight:700; font-size:16px; }
+  .error-box { margin-top:10px; color:#c0392b; font-size:14px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  td,th { padding:10px 8px; border-bottom:1px solid #edf1ea; text-align:left; }
+  td a { color:#2c7a10; font-weight:600; text-decoration:none; }
+  td a:hover { text-decoration:underline; }
+  .tag { font-size:12px; background:#eef3ea; border-radius:8px; padding:3px 8px; color:var(--muted); }
+  .spinner { display:inline-block; width:18px; height:18px; border:3px solid #fff5; border-top-color:#fff; border-radius:50%; animation:spin .8s linear infinite; vertical-align:-4px; margin-right:8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .note { font-size:13px; color:var(--muted); margin-top:10px; }
+  footer { text-align:center; color:var(--muted); font-size:12px; padding:20px; line-height:1.8; }
+  .lock { position:fixed; inset:0; background:rgba(30,42,26,.92); display:none; align-items:center; justify-content:center; z-index:99; }
+  .lock.show { display:flex; }
+  .lock-card { background:#fff; border-radius:18px; padding:34px; max-width:380px; width:90%; text-align:center; }
+  .lock-card h2 { color:var(--green); margin:0 0 8px; }
+  .lock-card input { width:100%; padding:13px; border:1.5px solid #d7e0d2; border-radius:10px; font-size:17px; text-align:center; letter-spacing:2px; margin:14px 0; }
+  .lock-card .err { color:#c0392b; font-size:14px; min-height:20px; }
+  .lock-card .cr { color:var(--muted); font-size:12px; margin-top:16px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="hleft">
+    <div class="dot" id="dot"></div>
+    <div>
+      <h1>Thư ký AI Zalo</h1>
+      <div class="status-text" id="statusText">Đang kiểm tra...</div>
+    </div>
+  </div>
+  <div class="hprofile" id="profileBox" style="display:none">
+    <div style="text-align:right">
+      <div class="pname" id="pName"></div>
+      <div class="pphone" id="pPhone"></div>
+    </div>
+    <img id="pAvatar" src="" alt="">
+  </div>
+</header>
+
+<main>
+  <!-- KET NOI -->
+  <section class="card" id="connectCard">
+    <h2>1. Kết nối Zalo</h2>
+    <p class="hint">Kết nối một lần, hệ thống tự ghi nhớ cho những lần sau. Chỉ ĐỌC tin nhắn — không bao giờ tự gửi gì.</p>
+    <div id="connectBody">
+      <button class="btn-primary" id="btnConnect">Kết nối Zalo của tôi</button>
+    </div>
+    <div class="error-box" id="connectError"></div>
+    <div class="stats" id="statsBox" style="display:none">
+      <div class="stat"><b id="stGroups">–</b><span>nhóm đang tham gia</span></div>
+      <div class="stat"><b id="stUnread">–</b><span>hội thoại đánh dấu chưa đọc</span></div>
+      <div class="stat"><b id="stMsgs">0</b><span>tin đã thu hôm nay</span></div>
+      <div class="stat"><b id="stNew">0</b><span>tin mới từ lần quét trước</span></div>
+      <div class="stat"><b id="stCron">18:00</b><span>giờ gửi brief tự động</span></div>
+    </div>
+    <div class="scanline" id="scanLine" style="display:none">
+      <span id="scanInfo"></span>
+      <button class="btn-ghost" id="btnScan" onclick="rescan()">Quét lại ngay</button>
+      <button class="btn-ghost" id="btnRelogin" onclick="relogin()">Đăng nhập lại (QR mới)</button>
+    </div>
+  </section>
+
+  <!-- BO NAO AI -->
+  <section class="card">
+    <h2>2. Bộ não AI</h2>
+    <p class="hint">AI đọc và tóm tắt tin nhắn. Đăng nhập một lần bằng tài khoản Claude (OAuth) — không cần API key.</p>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span id="aiStatus" style="font-weight:600">Đang kiểm tra...</span>
+      <button class="btn-ghost" onclick="aiCheck()">Kiểm tra lại</button>
+      <button class="btn-blue" id="btnAiLogin" onclick="aiLogin()" style="display:none">Đăng nhập AI (OAuth)</button>
+    </div>
+    <div class="note" id="aiNote"></div>
+  </section>
+
+  <!-- BAO CAO -->
+  <section class="card">
+    <h2>3. Tạo báo cáo</h2>
+    <p class="hint">Chọn nhanh hoặc tự chọn khoảng thời gian, rồi bấm nút. Báo cáo mở ngay trong trình duyệt.</p>
+    <div class="quick">
+      <button class="btn-ghost" onclick="quickRange('today')">Hôm nay (từ 0h)</button>
+      <button class="btn-ghost" onclick="quickRange('morning')">Sáng nay (0h–12h)</button>
+      <button class="btn-ghost" onclick="quickRange('afternoon')">Chiều nay (12h–giờ này)</button>
+      <button class="btn-ghost" onclick="quickRange('24h')">24 giờ qua</button>
+      <button class="btn-ghost" onclick="quickRange('yesterday')">Hôm qua</button>
+      <button class="btn-ghost" onclick="quickRange('3days')">3 ngày qua</button>
+      <button class="btn-ghost" onclick="quickRange('week')">Tuần qua</button>
+    </div>
+    <div class="range">
+      <div><label>Từ</label><input type="datetime-local" id="fromInput"></div>
+      <div><label>Đến</label><input type="datetime-local" id="toInput"></div>
+      <button class="btn-primary" id="btnReport" onclick="makeReport()">Tạo báo cáo</button>
+    </div>
+    <label style="font-size:14px;color:var(--muted)"><input type="checkbox" id="chkEmail"> Gửi thêm vào email <span id="emailNote"></span></label>
+    <div class="result" id="reportResult"></div>
+    <div class="error-box" id="reportError"></div>
+    <div class="note">Lưu ý: chỉ báo cáo được tin nhắn thu <b>từ lúc kết nối trở đi</b>. Không đọc lại được lịch sử cũ của Zalo.</div>
+  </section>
+
+  <!-- DANH SACH -->
+  <section class="card">
+    <h2>4. Báo cáo đã tạo</h2>
+    <p class="hint">Chỉ hiển thị báo cáo của tài khoản đang đăng nhập. Bấm tên để mở lại; trong báo cáo tick ô vuông để đánh dấu việc đã xử lý.</p>
+    <table id="reportTable"><tbody><tr><td class="hint">Chưa có báo cáo nào.</td></tr></tbody></table>
+  </section>
+</main>
+
+<footer>
+  Thư ký AI Zalo — chạy nội bộ trên máy này, chế độ chỉ đọc.<br>
+  <b>© 2026 Nguyễn Đức Kiên — 0981689892. Nghiêm cấm sao chép dưới mọi hình thức.</b>
+</footer>
+
+<div class="lock" id="lockOverlay">
+  <div class="lock-card">
+    <h2>🔒 Phần mềm có khóa</h2>
+    <p style="color:#6b7566;font-size:14px;margin:0">Nhập Key bản quyền để sử dụng</p>
+    <input id="keyInput" placeholder="VD: PGL-XXXX-XXXX" autocomplete="off">
+    <div class="err" id="keyErr"></div>
+    <button class="btn-primary" style="width:100%" onclick="unlock()">Mở khóa</button>
+    <div class="cr">© 2026 Nguyễn Đức Kiên — 0981689892<br>Nghiêm cấm sao chép dưới mọi hình thức.</div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let lastStatus = null;
+
+function setDT(input, d) {
+  const p = (n) => String(n).padStart(2, "0");
+  input.value = d.getFullYear() + "-" + p(d.getMonth()+1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+function quickRange(kind) {
+  const now = new Date();
+  let from = new Date(now), to = new Date(now);
+  if (kind === "today") { from.setHours(0,0,0,0); }
+  else if (kind === "morning") { from.setHours(0,0,0,0); to = new Date(now); to.setHours(12,0,0,0); }
+  else if (kind === "afternoon") { from.setHours(12,0,0,0); }
+  else if (kind === "24h") { from = new Date(now.getTime() - 24*3600*1000); }
+  else if (kind === "yesterday") {
+    from = new Date(now); from.setDate(from.getDate()-1); from.setHours(0,0,0,0);
+    to = new Date(from); to.setHours(23,59,0,0);
+  }
+  else if (kind === "3days") { from = new Date(now); from.setDate(from.getDate()-3); }
+  else if (kind === "week") { from = new Date(now); from.setDate(from.getDate()-7); }
+  setDT($("fromInput"), from); setDT($("toInput"), to);
+}
+
+async function unlock() {
+  const key = $("keyInput").value.trim();
+  if (!key) { $("keyErr").textContent = "Nhập Key trước đã."; return; }
+  const r = await (await fetch("/api/unlock", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  })).json();
+  if (r.ok) { $("lockOverlay").classList.remove("show"); location.reload(); }
+  else { $("keyErr").textContent = r.note || "Key không đúng."; }
+}
+
+async function refreshStatus() {
+  try {
+    const res = await fetch("/api/status");
+    if (res.status === 401) {
+      $("lockOverlay").classList.add("show");
+      $("statusText").textContent = "Đang khóa — nhập Key để sử dụng";
+      return;
+    }
+    const s = await res.json();
+    lastStatus = s;
+    const dot = $("dot");
+    dot.className = "dot " + (s.status === "da_ket_noi" ? "on" : s.status === "cho_quet" || s.status === "dang_ket_noi" ? "wait" : s.status === "loi" ? "err" : "");
+    const texts = {
+      chua_ket_noi: "Chưa kết nối Zalo",
+      cho_quet: "Đang chờ quét mã QR...",
+      dang_ket_noi: "Đã quét — đang kết nối...",
+      da_ket_noi: "Đang hoạt động" + (s.account ? " — " + s.account : "") + " (chỉ đọc)",
+      loi: "Có lỗi kết nối",
+    };
+    $("statusText").textContent = texts[s.status] || s.status;
+    $("connectError").textContent = s.error || "";
+
+    const body = $("connectBody");
+    if (s.status === "cho_quet" && s.qrImage) {
+      body.innerHTML = '<div class="qr-box"><img src="' + s.qrImage + '" alt="QR">' +
+        '<div class="steps">1. Mở <b>Zalo trên điện thoại</b><br>2. Bấm biểu tượng <b>QR</b> (góc trên, mục Danh bạ/Cài đặt)<br>3. Quét mã này và bấm <b>Đồng ý</b></div></div>';
+    } else if (s.status === "cho_quet") {
+      body.innerHTML = '<p class="hint"><span class="spinner" style="border-color:#cde3bd;border-top-color:#6CB545"></span>Đang tạo mã QR...</p>';
+    } else if (s.status === "dang_ket_noi") {
+      body.innerHTML = '<p class="hint">Đã quét thành công' + (s.account ? " — chào " + s.account : "") + '. Đang hoàn tất kết nối...</p>';
+    } else if (s.status === "da_ket_noi") {
+      body.innerHTML = '<p style="margin:0;font-weight:600;color:#2c7a10">✓ Đã kết nối' + (s.account ? ": " + s.account : "") + ' — hệ thống đang tự ghi nhận tin nhắn.</p>';
+    } else {
+      body.innerHTML = '<button class="btn-primary" id="btnConnect">Kết nối Zalo của tôi</button>';
+      $("btnConnect").onclick = connect;
+    }
+
+    const on = s.status === "da_ket_noi";
+    $("statsBox").style.display = on ? "flex" : "none";
+    $("scanLine").style.display = on ? "flex" : "none";
+    const sc = s.scan;
+    if (on && sc) {
+      // Ho so tai khoan
+      if (sc.profile) {
+        $("profileBox").style.display = "flex";
+        $("pAvatar").src = sc.profile.avatar || "";
+        $("pName").textContent = sc.profile.name || s.account || "";
+        $("pPhone").textContent = sc.profile.phone ? "SĐT: " + sc.profile.phone : "";
+      }
+      $("stGroups").textContent = sc.groupCount ?? "–";
+      const um = (sc.unreadMarkGroups ?? 0) + (sc.unreadMarkUsers ?? 0);
+      $("stUnread").textContent = (sc.unreadMarkGroups == null) ? "–" : um;
+      $("stMsgs").textContent = sc.capturedToday ?? s.msgToday;
+      $("stNew").textContent = sc.newSinceLastScan ?? 0;
+      $("scanInfo").textContent = "Tự quét " + s.scanMinutes + " phút/lần — lần gần nhất: " +
+        new Date(sc.scannedAt).toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit"}) +
+        (s.scanBusy ? " (đang quét...)" : "");
+    } else {
+      $("profileBox").style.display = "none";
+      $("stMsgs").textContent = s.msgToday;
+      if (on) $("scanInfo").textContent = "Đang quét lần đầu...";
+    }
+    $("stCron").textContent = (s.summaryCron || "").startsWith("0 18") ? "18:00" : s.summaryCron;
+    $("chkEmail").disabled = !s.smtpConfigured;
+    $("emailNote").textContent = s.smtpConfigured ? "" : "(chưa cài đặt email — báo cáo vẫn xem được tại đây)";
+
+    // Trang thai bo nao AI
+    if (s.ai) {
+      const ai = s.ai;
+      $("aiStatus").innerHTML = ai.ready
+        ? '<span style="color:#2c7a10">✓ Sẵn sàng</span>' + (ai.email ? ' — ' + ai.email + (ai.org ? ' (' + ai.org + ')' : '') : '')
+        : '<span style="color:#c0392b">✗ Chưa sẵn sàng</span>';
+      $("aiNote").textContent = ai.ready ? "" : ai.detail || "";
+      $("btnAiLogin").style.display = (!ai.ready && ai.provider === "claude-code") ? "inline-block" : "none";
+    }
+  } catch (e) { $("statusText").textContent = "Mất kết nối với phần mềm — kiểm tra cửa sổ đen có đang chạy không."; }
+}
+
+async function connect() {
+  await fetch("/api/connect", { method: "POST" });
+  refreshStatus();
+}
+
+async function rescan() {
+  const b = $("btnScan");
+  b.disabled = true; b.textContent = "Đang quét...";
+  try { await fetch("/api/scan", { method: "POST" }); } catch (e) {}
+  await refreshStatus();
+  b.disabled = false; b.textContent = "Quét lại ngay";
+}
+
+async function aiCheck() {
+  $("aiStatus").textContent = "Đang kiểm tra...";
+  try { await fetch("/api/ai/check", { method: "POST" }); } catch (e) {}
+  refreshStatus();
+}
+
+async function aiLogin() {
+  const r = await (await fetch("/api/ai/login", { method: "POST" })).json();
+  $("aiNote").textContent = r.note || "";
+}
+
+async function relogin() {
+  if (!confirm("Đăng nhập lại từ đầu?\nPhiên hiện tại sẽ ngắt và mã QR MỚI sẽ hiện ra để quét bằng điện thoại.")) return;
+  const b = $("btnRelogin");
+  b.disabled = true; b.textContent = "Đang tạo QR mới...";
+  try { await fetch("/api/relogin", { method: "POST" }); } catch (e) {}
+  await refreshStatus();
+  b.disabled = false; b.textContent = "Đăng nhập lại (QR mới)";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function makeReport() {
+  const btn = $("btnReport"), err = $("reportError"), box = $("reportResult");
+  err.textContent = ""; box.style.display = "none";
+  const from = $("fromInput").value, to = $("toInput").value;
+  if (!from || !to) { err.textContent = "Chọn thời gian Từ / Đến trước đã."; return; }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Đang đọc và tóm tắt...';
+  try {
+    const r = await (await fetch("/api/report", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to, email: $("chkEmail").checked }),
+    })).json();
+    if (!r.ok) { err.textContent = r.note || "Không tạo được báo cáo."; }
+    else {
+      box.style.display = "block";
+      box.innerHTML = '✓ Đã tóm tắt <b>' + r.count + ' tin</b>' +
+        (r.enriched ? ' (đọc ' + r.enriched + ' ảnh/tài liệu)' : '') +
+        (r.mailed ? ' — đã gửi email' : '') +
+        '.<br><a href="' + r.relUrl + '" target="_blank">Mở báo cáo: ' + r.label + '</a>';
+      window.open(r.relUrl, "_blank");
+      loadReports();
+    }
+  } catch (e) { err.textContent = "Lỗi: " + e.message; }
+  btn.disabled = false; btn.textContent = "Tạo báo cáo";
+}
+
+async function loadReports() {
+  try {
+    const list = await (await fetch("/api/reports")).json();
+    const tb = $("reportTable").querySelector("tbody");
+    if (!list.length) { tb.innerHTML = '<tr><td class="hint">Chưa có báo cáo nào.</td></tr>'; return; }
+    tb.innerHTML = list.map((r) =>
+      '<tr><td><a href="' + r.url + '" target="_blank">' + r.name + '</a></td>' +
+      '<td><span class="tag">' + r.kind + '</span></td>' +
+      '<td style="color:var(--muted)">' + new Date(r.mtime).toLocaleString("vi-VN") + '</td></tr>'
+    ).join("");
+  } catch (e) {}
+}
+
+quickRange("today");
+refreshStatus(); loadReports();
+setInterval(refreshStatus, 2500);
+setInterval(loadReports, 15000);
+</script>
+</body>
+</html>

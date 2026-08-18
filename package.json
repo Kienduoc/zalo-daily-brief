@@ -1,0 +1,24 @@
+{
+  "name": "zalo-daily-brief",
+  "version": "1.0.0",
+  "description": "Thu ky AI: lang nghe (chi doc) tin nhan group Zalo, tom tat va gui email brief hang ngay. LISTEN-ONLY, khong bao gio gui tin vao Zalo.",
+  "type": "module",
+  "scripts": {
+    "login": "node src/login.js",
+    "start": "node src/index.js",
+    "summarize:now": "node src/summarize.js --now",
+    "report": "node src/report.js",
+    "app": "node src/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "mammoth": "^1.12.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.14",
+    "pdf-parse": "^2.4.5",
+    "tough-cookie": "^4.1.4",
+    "xlsx": "^0.18.5",
+    "zca-js": "^2.0.0"
+  }
+}
