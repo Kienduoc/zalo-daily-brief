@@ -101,6 +101,13 @@
       <div class="stat"><b id="stNew">0</b><span>tin mới từ lần quét trước</span></div>
       <div class="stat"><b id="stCron">18:00</b><span>giờ gửi brief tự động</span></div>
     </div>
+    <div class="scanline" id="autoLine" style="display:none">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text)">
+        <input type="checkbox" id="chkAuto" onchange="toggleAuto()" style="transform:scale(1.3);accent-color:var(--green)">
+        <b>Tự khởi động cùng Windows</b> — bật máy là phần mềm chạy ngầm, không bỏ sót tin nhắn
+      </label>
+      <span id="autoNote" style="color:var(--muted)"></span>
+    </div>
     <div class="scanline" id="scanLine" style="display:none">
       <span id="scanInfo"></span>
       <button class="btn-ghost" id="btnScan" onclick="rescan()">Quét lại ngay</button>
@@ -248,6 +255,15 @@ async function refreshStatus() {
 
     const on = s.status === "da_ket_noi";
     $("statsBox").style.display = on ? "flex" : "none";
+    // Tu khoi dong cung Windows
+    const au = s.autostart || {};
+    $("autoLine").style.display = au.supported ? "flex" : "none";
+    if (au.supported && !autoBusy) {
+      $("chkAuto").checked = Boolean(au.enabled);
+      $("autoNote").textContent = au.stale
+        ? "(đang trỏ tới bản cũ — tắt rồi bật lại để sửa)"
+        : (au.enabled ? "✓ đang bật" : "");
+    }
     $("scanLine").style.display = on ? "flex" : "none";
     const sc = s.scan;
     if (on && sc) {
@@ -305,6 +321,24 @@ async function rescan() {
 }
 
 let aiNoteHold = false; // giu thong bao huong dan dang nhap, khong bi refresh ghi de ngay
+
+let autoBusy = false;
+async function toggleAuto() {
+  const cb = $("chkAuto");
+  autoBusy = true;
+  $("autoNote").textContent = "Đang lưu...";
+  try {
+    const r = await (await fetch("/api/autostart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: cb.checked }),
+    })).json();
+    $("autoNote").textContent = r.ok
+      ? (cb.checked ? "✓ Đã bật — lần sau bật máy phần mềm tự chạy" : "Đã tắt")
+      : (r.note || "Không lưu được");
+    if (!r.ok) cb.checked = !cb.checked;
+  } catch (e) { $("autoNote").textContent = "Lỗi: " + e.message; cb.checked = !cb.checked; }
+  autoBusy = false;
+}
 
 async function aiCheck() {
   aiNoteHold = false;
@@ -383,7 +417,12 @@ async function makeReport() {
     if (!r.ok) { err.textContent = r.note || "Không tạo được báo cáo."; }
     else {
       box.style.display = "block";
-      box.innerHTML = (r.backfill ? '↻ Đã quét ' + r.backfill.groups + ' nhóm, lấy thêm <b>' + r.backfill.added + ' tin cũ</b>.<br>' : '') +
+      const cov = r.coverage;
+      const covHtml = (cov && cov.gaps && cov.gaps.length)
+        ? '<div style="color:#b9770e;margin-bottom:6px">⚠ Phần mềm chỉ chạy ' + cov.phanTramCoDuLieu +
+          '% khoảng thời gian này — ' + cov.gaps.length + ' quãng không có dữ liệu (lúc đó phần mềm không chạy).</div>'
+        : '';
+      box.innerHTML = covHtml + (r.backfill ? '↻ Đã quét ' + r.backfill.groups + ' nhóm, lấy thêm <b>' + r.backfill.added + ' tin cũ</b>.<br>' : '') +
         '✓ Đã tóm tắt <b>' + r.count + ' tin</b>' +
         (r.enriched ? ' (đọc ' + r.enriched + ' ảnh/tài liệu)' : '') +
         (r.mailed ? ' — đã gửi email' : '') +

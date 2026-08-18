@@ -16,6 +16,8 @@ import { loadState, dateKey } from "./storage.js";
 import { scanAccount } from "./accountScan.js";
 import { backfillRange } from "./backfill.js";
 import { probeGroupHistory, probeUserHistory, probeGroupPaths, probeControl } from "./zaloRaw.js";
+import { getAutostart, setAutostart } from "./autostart.js";
+import { uptimeStart, uptimeBeat, findGaps, seedUptimeFromMessages } from "./uptime.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -50,6 +52,7 @@ function runAccountScan() {
     try {
       const prevTs = scanData?.scannedAt || null;
       scanData = await scanAccount(apiInstance, prevTs);
+      uptimeBeat();
       if (scanData.errors.length) console.log("Quet tai khoan (co loi 1 phan):", scanData.errors.join("; "));
     } catch (e) {
       console.error("Loi quet tai khoan:", e.message);
@@ -151,6 +154,8 @@ function markConnected(api, name) {
   zState.uid = api.getContext()?.uid || null; // uid tai khoan — dung de tach du lieu/bao cao
   zState.connectedAt = Date.now();
   attachListener(api);
+  try { seedUptimeFromMessages(MSG_DIR); } catch { /* bo qua */ }
+  uptimeStart();
   startScanLoop();
   console.log(`Zalo da ket noi (uid ${zState.uid}). Dang lang nghe (CHI DOC). Tu quet ${SCAN_MINUTES} phut/lan.`);
 }
@@ -318,6 +323,7 @@ app.get("/api/status", (req, res) => {
     scanBusy: Boolean(currentScan),
     ai: aiState,
     job: jobState,
+    autostart: (() => { try { return getAutostart(); } catch { return { supported: false }; } })(),
   });
 });
 
@@ -379,6 +385,15 @@ app.post("/api/ai/logout", (req, res) => {
   execFile(isClaude ? CLAUDE_CMD : CODEX_CMD, isClaude ? ["auth", "logout"] : ["logout"], { shell: true, windowsHide: true, timeout: 30_000 }, async () => {
     res.json({ ok: true, ai: await checkAiStatus() });
   });
+});
+
+// Bat/tat tu khoi dong cung Windows
+app.post("/api/autostart", (req, res) => {
+  try {
+    res.json({ ok: true, autostart: setAutostart(Boolean(req.body?.enabled)) });
+  } catch (e) {
+    res.status(400).json({ ok: false, note: String(e?.message || e) });
+  }
 });
 
 // CHAN DOAN: do kha nang lay lich su (nhom + ca nhan) — dung de hieu chinh
@@ -468,7 +483,8 @@ app.post("/api/report", async (req, res) => {
     // Buoc 2: tom tat
     jobState = { phase: "summarize", done: 0, total: 0, note: "AI đang đọc và tóm tắt..." };
     const r = await runRangeReport(from, to, { email: Boolean(req.body?.email), accountId: zState.uid });
-    if (bf && bf.ok) r.backfill = { groups: bf.groups, added: bf.added, ms: bf.ms };
+    if (bf && bf.ok && !bf.unavailable) r.backfill = { groups: bf.groups, added: bf.added, ms: bf.ms };
+    try { r.coverage = findGaps(from.getTime(), to.getTime()); } catch { /* bo qua */ }
     res.json(r);
   } catch (err) {
     res.status(500).json({ ok: false, note: "Lỗi tạo báo cáo: " + String(err?.message || err) });
