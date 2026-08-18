@@ -7,465 +7,553 @@
 <link rel="icon" type="image/svg+xml" href="/zk.svg">
 <link rel="alternate icon" href="/zk-64.png">
 <style>
-  :root { --green:#6CB545; --blue:#00AEEF; --bg:#f4f6f3; --card:#fff; --text:#1e2a1a; --muted:#6b7566; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:"Segoe UI",Arial,sans-serif; background:var(--bg); color:var(--text); }
-  header { background:linear-gradient(90deg,var(--green),#4e9430); color:#fff; padding:18px 24px; display:flex; align-items:center; justify-content:space-between; gap:14px; }
-  .hleft { display:flex; align-items:center; gap:14px; }
-  .hlogo { width:42px; height:42px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.2); background:#fff; }
-  .hprofile { display:flex; align-items:center; gap:12px; }
-  .hprofile img { width:46px; height:46px; border-radius:50%; border:2.5px solid #fff; object-fit:cover; background:#dde7d6; }
-  .hprofile .pname { font-weight:700; font-size:15px; }
-  .hprofile .pphone { font-size:12.5px; color:#eaf6e2; }
-  header h1 { font-size:22px; margin:0; font-weight:700; }
-  .dot { width:14px; height:14px; border-radius:50%; background:#ccc; box-shadow:0 0 0 3px rgba(255,255,255,.35); }
-  .dot.on { background:#b5ff8a; } .dot.wait { background:#ffd764; } .dot.err { background:#ff8a8a; }
-  .status-text { font-size:14px; opacity:.95; }
-  main { max-width:860px; margin:24px auto; padding:0 16px; display:grid; gap:20px; }
-  .card { background:var(--card); border-radius:16px; box-shadow:0 2px 10px rgba(0,0,0,.06); padding:22px; }
-  .card h2 { margin:0 0 6px; font-size:18px; color:var(--green); }
-  .card p.hint { margin:0 0 14px; color:var(--muted); font-size:14px; }
-  button { border:0; border-radius:12px; padding:14px 22px; font-size:16px; font-weight:600; cursor:pointer; }
-  button:disabled { opacity:.55; cursor:default; }
-  .btn-primary { background:var(--green); color:#fff; }
-  .btn-primary:hover:not(:disabled) { background:#5aa437; }
-  .btn-blue { background:var(--blue); color:#fff; }
-  .btn-ghost { background:#eef3ea; color:var(--text); font-weight:500; padding:10px 14px; font-size:14px; }
-  .pfgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
-  .pfgrid label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
-  .pfgrid input { width:100%; padding:10px 12px; border:1.5px solid #d7e0d2; border-radius:10px; font-size:15px; font-family:inherit; }
-  .tag-btn { border:1.5px solid #d7e0d2; background:#fff; border-radius:20px; padding:7px 14px; font-size:13px; cursor:pointer; }
-  .tag-btn.on { background:#6CB545; color:#fff; border-color:#6CB545; font-weight:600; }
-  .prov { font-size:15px; padding:12px 20px; border:2px solid transparent; }
-  .prov.on { background:#e8f5df; border-color:var(--green); color:#2c7a10; font-weight:700; }
-  .qr-box { text-align:center; padding:10px; }
-  .qr-box img { width:240px; height:240px; border:6px solid #eef3ea; border-radius:12px; }
-  .steps { text-align:left; display:inline-block; margin:10px auto 0; color:var(--muted); font-size:14px; line-height:1.9; }
-  .stats { display:flex; gap:14px; flex-wrap:wrap; margin-top:12px; }
-  .stat { background:#f2f7ee; border-radius:12px; padding:12px 18px; min-width:120px; }
-  .stat b { display:block; font-size:22px; color:var(--green); }
-  .stat span { font-size:13px; color:var(--muted); }
-  .scanline { display:flex; align-items:center; gap:10px; margin-top:12px; font-size:13px; color:var(--muted); flex-wrap:wrap; }
-  .quick { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-  .range { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin-bottom:16px; }
-  .range label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
-  .range input { padding:10px 12px; border:1.5px solid #d7e0d2; border-radius:10px; font-size:15px; font-family:inherit; }
-  .result { margin-top:14px; padding:14px; border-radius:12px; background:#f2f7ee; display:none; }
-  .result a { color:#2c7a10; font-weight:700; font-size:16px; }
-  .error-box { margin-top:10px; color:#c0392b; font-size:14px; }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  td,th { padding:10px 8px; border-bottom:1px solid #edf1ea; text-align:left; }
-  td a { color:#2c7a10; font-weight:600; text-decoration:none; }
-  td a:hover { text-decoration:underline; }
-  .tag { font-size:12px; background:#eef3ea; border-radius:8px; padding:3px 8px; color:var(--muted); }
-  .spinner { display:inline-block; width:18px; height:18px; border:3px solid #fff5; border-top-color:#fff; border-radius:50%; animation:spin .8s linear infinite; vertical-align:-4px; margin-right:8px; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .note { font-size:13px; color:var(--muted); margin-top:10px; }
-  footer { text-align:center; color:var(--muted); font-size:12px; padding:20px; line-height:1.8; }
-  .lock { position:fixed; inset:0; background:rgba(30,42,26,.92); display:none; align-items:center; justify-content:center; z-index:99; }
-  .lock.show { display:flex; }
-  .lock-card { background:#fff; border-radius:18px; padding:34px; max-width:380px; width:90%; text-align:center; }
-  .lock-card h2 { color:var(--green); margin:0 0 8px; }
-  .lock-card input { width:100%; padding:13px; border:1.5px solid #d7e0d2; border-radius:10px; font-size:17px; text-align:center; letter-spacing:2px; margin:14px 0; }
-  .lock-card .err { color:#c0392b; font-size:14px; min-height:20px; }
-  .lock-card .cr { color:var(--muted); font-size:12px; margin-top:16px; }
+:root{
+  --brand:#6CB545; --brand-dark:#4E9430; --brand-soft:#EEF6E8;
+  --zalo:#0068FF; --zalo-soft:#E8F1FF;
+  --bg:#F6F8F4; --surface:#fff; --line:#E3E9DE;
+  --text:#1A2416; --muted:#66735F;
+  --ok:#2C7A10; --warn:#9A6206; --warn-soft:#FDF3E2; --danger:#B3261E; --danger-soft:#FCEDEC;
+  --r:14px; --r-sm:10px;
+  --shadow:0 1px 2px rgba(24,40,16,.06), 0 4px 12px rgba(24,40,16,.05);
+  --t:170ms cubic-bezier(.4,0,.2,1);
+}
+@media (prefers-reduced-motion: reduce){ :root{ --t:0ms } *{animation:none!important} }
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  background:var(--bg); color:var(--text); font-size:15px; line-height:1.55;
+}
+button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default;opacity:.5}
+:focus-visible{outline:2.5px solid var(--zalo);outline-offset:2px;border-radius:6px}
+.icon{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- Thanh tren ---------- */
+.topbar{
+  position:sticky;top:0;z-index:40;background:var(--surface);
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:14px;padding:12px 20px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand img{width:38px;height:38px;border-radius:9px}
+.brand h1{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em;white-space:nowrap}
+.pill{
+  display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:999px;
+  font-size:13px;font-weight:600;background:var(--brand-soft);color:var(--ok);white-space:nowrap;
+}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.pill.wait{background:var(--warn-soft);color:var(--warn)}
+.pill.off{background:#F0F2EE;color:var(--muted)}
+.pill.err{background:var(--danger-soft);color:var(--danger)}
+.spacer{flex:1 1 auto}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.who img{width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--brand-soft);border:1.5px solid var(--line)}
+.who .n{font-size:13.5px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22ch}
+.who .r{font-size:12px;color:var(--muted);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22ch}
+
+/* ---------- Nut ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:1px solid transparent;border-radius:var(--r-sm);
+  padding:10px 16px;font-size:14px;font-weight:600;
+  background:var(--brand);color:#fff;transition:background var(--t),border-color var(--t);
+}
+.btn:hover:not(:disabled){background:var(--brand-dark)}
+.btn.sec{background:var(--surface);color:var(--text);border-color:var(--line)}
+.btn.sec:hover:not(:disabled){background:#F2F5EF}
+.btn.blue{background:var(--zalo)}
+.btn.blue:hover:not(:disabled){background:#0055D4}
+.btn.sm{padding:7px 12px;font-size:13px}
+.btn.lg{padding:13px 22px;font-size:15px}
+
+/* ---------- Bo cuc ---------- */
+main{max-width:1080px;margin:0 auto;padding:24px 20px 56px}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:22px;margin-bottom:20px;box-shadow:var(--shadow);
+}
+.card > h2{margin:0 0 4px;font-size:16px;font-weight:650;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.card > .sub{margin:0 0 18px;color:var(--muted);font-size:13.5px}
+.card-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.card-head .grow{flex:1 1 240px;min-width:0}
+.card-head h2{margin:0 0 3px}
+.card-head .sub{margin:0}
+
+/* ---------- O so lieu ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px}
+.stat{background:var(--brand-soft);border-radius:var(--r-sm);padding:14px 16px}
+.stat b{display:block;font-size:25px;font-weight:680;color:var(--brand-dark);line-height:1.15;letter-spacing:-.02em}
+.stat span{display:block;font-size:12.5px;color:var(--muted);margin-top:3px}
+.stat.info{background:var(--zalo-soft)} .stat.info b{color:var(--zalo)}
+.meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--muted)}
+
+/* ---------- Tao bao cao ---------- */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.chip{
+  background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:8px 15px;font-size:13.5px;font-weight:500;transition:all var(--t);
+}
+.chip:hover{border-color:var(--brand);color:var(--brand-dark)}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.range{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:12.5px;color:var(--muted);font-weight:500}
+.field input,.field textarea{
+  padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--surface);transition:border-color var(--t);width:100%;
+}
+.field input:focus,.field textarea:focus{border-color:var(--brand)}
+.check{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:13.5px;cursor:pointer}
+.check input{width:17px;height:17px;accent-color:var(--brand);cursor:pointer;flex:none}
+.note{margin-top:14px;font-size:12.5px;color:var(--muted)}
+
+.alert{border-radius:var(--r-sm);padding:13px 15px;font-size:13.5px;margin-top:14px;display:flex;gap:10px;align-items:flex-start}
+.alert.ok{background:var(--brand-soft);color:#245C08}
+.alert.warn{background:var(--warn-soft);color:var(--warn)}
+.alert.err{background:var(--danger-soft);color:var(--danger)}
+.alert a{color:inherit;font-weight:650}
+.alert .icon{margin-top:1px}
+
+/* ---------- Bang bao cao ---------- */
+.tbl-wrap{overflow-x:auto;margin:0 -4px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:0 10px 9px;white-space:nowrap}
+td{padding:11px 10px;border-top:1px solid var(--line);vertical-align:middle}
+td a{color:var(--ok);font-weight:600;text-decoration:none}
+td a:hover{text-decoration:underline}
+.badge{display:inline-block;background:var(--brand-soft);color:var(--ok);border-radius:6px;padding:3px 9px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.empty{padding:26px 10px;text-align:center;color:var(--muted);font-size:13.5px}
+
+/* ---------- Cai dat ---------- */
+.seg{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.seg button{
+  display:inline-flex;align-items:center;gap:8px;background:var(--surface);
+  border:1.5px solid var(--line);border-radius:var(--r-sm);padding:11px 18px;
+  font-size:14px;font-weight:600;transition:all var(--t);
+}
+.seg button[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
+.seg .swatch{width:9px;height:9px;border-radius:50%;flex:none}
+.qr{text-align:center;padding:6px 0}
+.qr img{width:230px;height:230px;border:8px solid var(--brand-soft);border-radius:var(--r);display:block;margin:0 auto}
+.qr ol{text-align:left;display:inline-block;margin:16px 0 0;padding-left:20px;color:var(--muted);font-size:13.5px;line-height:2}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.tag{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;transition:all var(--t)}
+.tag:hover{border-color:var(--brand)}
+.tag[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.switch{display:flex;align-items:center;gap:11px;cursor:pointer;font-size:14px}
+.switch input{width:19px;height:19px;accent-color:var(--brand);cursor:pointer;flex:none}
+pre.preview{
+  background:#F3F6F0;border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:15px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;
+  font-family:inherit;color:#33402C;margin:14px 0 0;max-height:340px;overflow:auto;
+}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.muted{color:var(--muted);font-size:13px}
+
+.spin{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;flex:none;display:inline-block;vertical-align:-3px}
+.btn.sec .spin{border-color:rgba(0,0,0,.15);border-top-color:var(--brand)}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+footer{text-align:center;color:var(--muted);font-size:12px;padding:8px 20px 32px;line-height:1.9}
+footer b{color:var(--text);font-weight:600}
+
+/* ---------- Khoa ---------- */
+.lock{position:fixed;inset:0;z-index:100;background:rgba(20,32,14,.9);display:none;align-items:center;justify-content:center;padding:20px}
+.lock.on{display:flex}
+.lock .box{background:var(--surface);border-radius:18px;padding:32px;max-width:380px;width:100%;text-align:center}
+.lock input{width:100%;padding:13px;border:1.5px solid var(--line);border-radius:var(--r-sm);text-align:center;letter-spacing:2px;font-size:16px;margin:16px 0 10px}
+
+@media (max-width:640px){
+  .topbar{padding:11px 14px;gap:10px}
+  main{padding:18px 14px 44px}
+  .card{padding:18px}
+  .who .n,.who .r{display:none}
+}
 </style>
 </head>
 <body>
-<header>
-  <div class="hleft">
-    <img src="/zk.svg" alt="ZK" class="hlogo">
-    <div class="dot" id="dot"></div>
-    <div>
-      <h1>Thư ký AI Zalo</h1>
-      <div class="status-text" id="statusText">Đang kiểm tra...</div>
-    </div>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="/zk.svg" alt="">
+    <h1>Thư ký AI Zalo</h1>
   </div>
-  <div class="hprofile" id="profileBox" style="display:none">
+  <span class="pill off" id="pill"><span class="dot"></span><span id="pillText">Đang kiểm tra</span></span>
+  <div class="spacer"></div>
+  <div class="who" id="who" hidden>
     <div style="text-align:right">
-      <div class="pname" id="pName"></div>
-      <div class="pphone" id="pPhone"></div>
+      <div class="n" id="whoName"></div>
+      <div class="r" id="whoRole"></div>
     </div>
-    <img id="pAvatar" src="" alt="">
+    <img id="whoAvatar" src="" alt="">
   </div>
+  <button class="btn sec sm" id="navBtn" onclick="switchView()">
+    <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.36.42.65.78.82H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span id="navLabel">Cài đặt</span>
+  </button>
 </header>
 
 <main>
-  <!-- KET NOI -->
-  <section class="card" id="connectCard">
-    <h2>1. Kết nối Zalo</h2>
-    <p class="hint">Kết nối một lần, hệ thống tự ghi nhớ cho những lần sau. Chỉ ĐỌC tin nhắn — không bao giờ tự gửi gì.</p>
-    <div id="connectBody">
-      <button class="btn-primary" id="btnConnect">Kết nối Zalo của tôi</button>
-    </div>
-    <div class="error-box" id="connectError"></div>
-    <div class="stats" id="statsBox" style="display:none">
-      <div class="stat"><b id="stGroups">–</b><span>nhóm đang tham gia</span></div>
-      <div class="stat"><b id="stUnread">–</b><span>hội thoại đánh dấu chưa đọc</span></div>
-      <div class="stat"><b id="stMsgs">0</b><span>tin đã thu hôm nay</span></div>
-      <div class="stat"><b id="stNew">0</b><span>tin mới từ lần quét trước</span></div>
-      <div class="stat"><b id="stCron">18:00</b><span>giờ gửi brief tự động</span></div>
-    </div>
-    <div class="scanline" id="autoLine" style="display:none">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text)">
-        <input type="checkbox" id="chkAuto" onchange="toggleAuto()" style="transform:scale(1.3);accent-color:var(--green)">
-        <b>Tự khởi động cùng Windows</b> — bật máy là phần mềm chạy ngầm, không bỏ sót tin nhắn
-      </label>
-      <span id="autoNote" style="color:var(--muted)"></span>
-    </div>
-    <div class="scanline" id="scanLine" style="display:none">
-      <span id="scanInfo"></span>
-      <button class="btn-ghost" id="btnScan" onclick="rescan()">Quét lại ngay</button>
-      <button class="btn-ghost" id="btnRelogin" onclick="relogin()">Đăng nhập lại (QR mới)</button>
-    </div>
-  </section>
+  <!-- ============ TRANG CHINH ============ -->
+  <div id="viewMain">
 
-  <!-- BO NAO AI -->
-  <section class="card">
-    <h2>2. Bộ não AI</h2>
-    <p class="hint">Chọn AI rồi đăng nhập bằng chính tài khoản của bạn (OAuth) — không cần API key. Đổi tài khoản lúc nào cũng được.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-      <button class="btn-ghost prov" id="provClaude" onclick="setProv('claude-code')">🟠 Claude</button>
-      <button class="btn-ghost prov" id="provCodex" onclick="setProv('codex')">🟢 ChatGPT</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span id="aiStatus" style="font-weight:600">Đang kiểm tra...</span>
-      <button class="btn-ghost" onclick="aiCheck()">Kiểm tra lại</button>
-      <button class="btn-blue" id="btnAiLogin" onclick="aiLogin()">Đăng nhập / Đổi tài khoản</button>
-      <button class="btn-ghost" id="btnAiLogout" onclick="aiLogout()" style="display:none">Đăng xuất</button>
-    </div>
-    <div class="note" id="aiNote"></div>
-  </section>
-
-  <!-- VAI TRO -->
-  <section class="card" id="profileCard">
-    <h2>3. Vai trò của bạn <span id="pfBadge" style="font-size:13px;font-weight:400;color:#c0392b"></span></h2>
-    <p class="hint">AI sẽ tóm tắt theo đúng công việc của bạn. Mỗi người một vai trò, báo cáo sẽ khác nhau.</p>
-
-    <div class="pfgrid">
-      <div><label>Họ tên</label><input id="pfTen" placeholder="VD: Nguyễn Đức Kiên"></div>
-      <div><label>Chức danh</label><input id="pfChuc" placeholder="VD: Giám đốc Trung tâm"></div>
-      <div><label>Đơn vị / Phòng ban</label><input id="pfDonVi" placeholder="VD: Trung tâm Điều hành"></div>
+    <div class="card" id="needSetup" hidden>
+      <div class="alert warn" style="margin-top:0">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <div>
+          <b>Chưa kết nối Zalo.</b> Vào Cài đặt để quét mã QR — sau đó phần mềm bắt đầu ghi nhận tin nhắn.
+          <div style="margin-top:11px"><button class="btn sm" onclick="switchView('settings')">Mở Cài đặt</button></div>
+        </div>
+      </div>
     </div>
 
-    <label style="display:block;margin:14px 0 6px;font-size:13px;color:var(--muted)">Vai trò khi đọc Zalo</label>
-    <div id="pfRoles" class="quick"></div>
-
-    <label style="display:block;margin:8px 0 6px;font-size:13px;color:var(--muted)">Chủ đề cần đặc biệt để ý (bấm chọn, có thể chọn nhiều)</label>
-    <div id="pfTags" class="quick"></div>
-    <input id="pfTagNew" placeholder="Thêm chủ đề riêng rồi bấm Enter (VD: khách hàng Anritsu)" style="width:100%;padding:10px 12px;border:1.5px solid #d7e0d2;border-radius:10px;font-size:14px;margin-bottom:12px">
-
-    <label style="display:block;margin:8px 0 6px;font-size:13px;color:var(--muted)">Dặn dò riêng cho AI (không bắt buộc)</label>
-    <textarea id="pfRieng" rows="3" placeholder="VD: Luôn tách riêng việc của chi nhánh HCM. Bỏ qua các nhóm xã giao." style="width:100%;padding:10px 12px;border:1.5px solid #d7e0d2;border-radius:10px;font-size:14px;font-family:inherit"></textarea>
-
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
-      <button class="btn-primary" id="pfSave" onclick="saveProfile()">Lưu vai trò</button>
-      <button class="btn-ghost" onclick="togglePreview()">Xem AI được dặn gì</button>
-      <span id="pfNote" style="font-size:14px;color:var(--muted)"></span>
+    <div class="card" id="scanCard" hidden>
+      <div class="card-head">
+        <div class="grow">
+          <h2>
+            <svg class="icon" viewBox="0 0 24 24" style="color:var(--brand-dark)"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            Kết quả quét dữ liệu
+          </h2>
+          <p class="sub" id="scanSub">Hệ thống tự quét lại theo chu kỳ.</p>
+        </div>
+        <button class="btn sec sm" id="btnScan" onclick="rescan()">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 2v6h-6M3 22v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L21 8M21 15a9 9 0 0 1-14.9 3.4L3 16"/></svg>
+          Quét lại ngay
+        </button>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="stGroups">–</b><span>nhóm đang tham gia</span></div>
+        <div class="stat"><b id="stUnread">–</b><span>hội thoại chưa đọc</span></div>
+        <div class="stat info"><b id="stMsgs">0</b><span>tin đã thu hôm nay</span></div>
+        <div class="stat info"><b id="stNew">0</b><span>tin mới từ lần quét trước</span></div>
+        <div class="stat"><b id="stCron">18:00</b><span>giờ gửi brief tự động</span></div>
+      </div>
     </div>
-    <pre id="pfPreview" style="display:none;background:#f2f7ee;padding:14px;border-radius:10px;font-size:12.5px;white-space:pre-wrap;margin-top:12px;font-family:inherit;color:#2c3a26"></pre>
-  </section>
 
-  <!-- BAO CAO -->
-  <section class="card">
-    <h2>4. Tạo báo cáo</h2>
-    <p class="hint">Chọn nhanh hoặc tự chọn khoảng thời gian, rồi bấm nút. Báo cáo mở ngay trong trình duyệt.</p>
-    <div class="quick">
-      <button class="btn-ghost" onclick="quickRange('today')">Hôm nay (từ 0h)</button>
-      <button class="btn-ghost" onclick="quickRange('morning')">Sáng nay (0h–12h)</button>
-      <button class="btn-ghost" onclick="quickRange('afternoon')">Chiều nay (12h–giờ này)</button>
-      <button class="btn-ghost" onclick="quickRange('24h')">24 giờ qua</button>
-      <button class="btn-ghost" onclick="quickRange('yesterday')">Hôm qua</button>
-      <button class="btn-ghost" onclick="quickRange('3days')">3 ngày qua</button>
-      <button class="btn-ghost" onclick="quickRange('week')">Tuần qua</button>
-    </div>
-    <div class="range">
-      <div><label>Từ</label><input type="datetime-local" id="fromInput"></div>
-      <div><label>Đến</label><input type="datetime-local" id="toInput"></div>
-      <button class="btn-primary" id="btnReport" onclick="makeReport()">Tạo báo cáo</button>
-    </div>
-    <label style="font-size:14px;color:var(--muted)"><input type="checkbox" id="chkEmail"> Gửi thêm vào email <span id="emailNote"></span></label>
-    <div class="result" id="reportResult"></div>
-    <div class="error-box" id="reportError"></div>
-    <div class="note">Lưu ý: chỉ báo cáo được tin nhắn thu <b>từ lúc kết nối trở đi</b>. Không đọc lại được lịch sử cũ của Zalo.</div>
-  </section>
+    <div class="card" id="reportCard" hidden>
+      <h2>
+        <svg class="icon" viewBox="0 0 24 24" style="color:var(--brand-dark)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+        Tạo báo cáo
+      </h2>
+      <p class="sub">Chọn khoảng thời gian rồi bấm nút. AI tóm tắt theo đúng vai trò của bạn.</p>
 
-  <!-- DANH SACH -->
-  <section class="card">
-    <h2>5. Báo cáo đã tạo</h2>
-    <p class="hint">Chỉ hiển thị báo cáo của tài khoản đang đăng nhập. Bấm tên để mở lại; trong báo cáo tick ô vuông để đánh dấu việc đã xử lý.</p>
-    <table id="reportTable"><tbody><tr><td class="hint">Chưa có báo cáo nào.</td></tr></tbody></table>
-  </section>
+      <div class="chips" id="quickChips">
+        <button class="chip" data-k="today" aria-pressed="false">Hôm nay</button>
+        <button class="chip" data-k="morning" aria-pressed="false">Sáng nay</button>
+        <button class="chip" data-k="afternoon" aria-pressed="false">Chiều nay</button>
+        <button class="chip" data-k="24h" aria-pressed="false">24 giờ qua</button>
+        <button class="chip" data-k="yesterday" aria-pressed="false">Hôm qua</button>
+        <button class="chip" data-k="3days" aria-pressed="false">3 ngày qua</button>
+        <button class="chip" data-k="week" aria-pressed="false">Tuần qua</button>
+      </div>
+
+      <div class="range">
+        <div class="field"><label for="fromInput">Từ</label><input type="datetime-local" id="fromInput"></div>
+        <div class="field"><label for="toInput">Đến</label><input type="datetime-local" id="toInput"></div>
+        <button class="btn lg" id="btnReport" onclick="makeReport()">Tạo báo cáo</button>
+      </div>
+
+      <label class="check"><input type="checkbox" id="chkEmail"><span>Gửi thêm vào email <span class="muted" id="emailNote"></span></span></label>
+
+      <div class="alert ok" id="reportResult" style="display:none"></div>
+      <div class="alert err" id="reportError" style="display:none"></div>
+      <p class="note">Chỉ báo cáo được tin nhắn thu <b>từ lúc phần mềm chạy</b>. Zalo không cho đọc lại lịch sử cũ.</p>
+    </div>
+
+    <div class="card" id="listCard" hidden>
+      <h2>
+        <svg class="icon" viewBox="0 0 24 24" style="color:var(--brand-dark)"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        Báo cáo đã tạo
+      </h2>
+      <p class="sub">Chỉ hiển thị báo cáo của tài khoản đang đăng nhập. Mở báo cáo rồi tick ô vuông để đánh dấu việc đã xử lý.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Khoảng thời gian</th><th>Loại</th><th>Tạo lúc</th></tr></thead>
+          <tbody id="reportRows"><tr><td colspan="3" class="empty">Chưa có báo cáo nào.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CAI DAT ============ -->
+  <div id="viewSettings" hidden>
+
+    <div class="card">
+      <h2>
+        <svg class="icon" viewBox="0 0 24 24" style="color:var(--zalo)"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Kết nối Zalo
+      </h2>
+      <p class="sub">Kết nối một lần, phần mềm tự ghi nhớ. Chế độ <b>chỉ đọc</b> — không bao giờ tự gửi tin.</p>
+      <div id="connectBody"></div>
+      <div class="alert err" id="connectError" style="display:none"></div>
+      <div class="row" id="connectActions" hidden>
+        <button class="btn sec sm" onclick="relogin()" id="btnRelogin">Đăng nhập lại (QR mới)</button>
+      </div>
+      <div class="row" id="autoRow" hidden>
+        <label class="switch"><input type="checkbox" id="chkAuto" onchange="toggleAuto()">
+          <span><b>Tự khởi động cùng Windows</b><br><span class="muted">Bật máy là phần mềm chạy ngầm, không bỏ sót tin nhắn</span></span></label>
+        <span class="muted" id="autoNote"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>
+        <svg class="icon" viewBox="0 0 24 24" style="color:var(--zalo)"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/></svg>
+        Bộ não AI
+      </h2>
+      <p class="sub">Chọn AI rồi đăng nhập bằng chính tài khoản của bạn. Không cần API key.</p>
+      <div class="seg" id="provSeg">
+        <button id="provClaude" aria-pressed="false" onclick="setProv('claude-code')"><span class="swatch" style="background:#D97757"></span>Claude</button>
+        <button id="provCodex" aria-pressed="false" onclick="setProv('codex')"><span class="swatch" style="background:#10A37F"></span>ChatGPT</button>
+      </div>
+      <div class="row" style="margin-top:0">
+        <span id="aiStatus" style="font-weight:600">Đang kiểm tra…</span>
+        <button class="btn sec sm" onclick="aiCheck()">Kiểm tra lại</button>
+        <button class="btn blue sm" onclick="aiLogin()">Đăng nhập / Đổi tài khoản</button>
+        <button class="btn sec sm" id="btnAiLogout" onclick="aiLogout()" hidden>Đăng xuất</button>
+      </div>
+      <div class="note" id="aiNote"></div>
+    </div>
+
+    <div class="card" id="profileCard" hidden>
+      <h2>
+        <svg class="icon" viewBox="0 0 24 24" style="color:var(--zalo)"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Thông tin &amp; vai trò của bạn <span class="muted" id="pfBadge" style="font-weight:400"></span>
+      </h2>
+      <p class="sub">Mỗi người đọc Zalo với mục đích khác nhau — AI sẽ tóm tắt theo đúng công việc của bạn.</p>
+
+      <div class="grid3">
+        <div class="field"><label for="pfTen">Họ tên</label><input id="pfTen" placeholder="VD: Nguyễn Đức Kiên"></div>
+        <div class="field"><label for="pfChuc">Chức danh</label><input id="pfChuc" placeholder="VD: Giám đốc Trung tâm"></div>
+        <div class="field"><label for="pfDonVi">Đơn vị / Phòng ban</label><input id="pfDonVi" placeholder="VD: Trung tâm Điều hành"></div>
+      </div>
+
+      <p class="muted" style="margin:18px 0 8px">Vai trò khi đọc Zalo</p>
+      <div class="seg" id="pfRoles"></div>
+
+      <p class="muted" style="margin:6px 0 8px">Chủ đề cần đặc biệt để ý</p>
+      <div class="tags" id="pfTags"></div>
+      <div class="field"><input id="pfTagNew" placeholder="Thêm chủ đề riêng rồi bấm Enter (VD: khách hàng Anritsu)"></div>
+
+      <div class="field" style="margin-top:16px">
+        <label for="pfRieng">Dặn dò riêng cho AI (không bắt buộc)</label>
+        <textarea id="pfRieng" rows="3" placeholder="VD: Luôn tách riêng việc của chi nhánh HCM. Bỏ qua các nhóm xã giao."></textarea>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="pfSave" onclick="saveProfile()">Lưu vai trò</button>
+        <button class="btn sec" onclick="togglePreview()">Xem AI được dặn gì</button>
+        <span class="muted" id="pfNote"></span>
+      </div>
+      <pre class="preview" id="pfPreview" hidden></pre>
+    </div>
+  </div>
 </main>
 
 <footer>
   Thư ký AI Zalo — chạy nội bộ trên máy này, chế độ chỉ đọc.<br>
-  <b>© 2026 Nguyễn Đức Kiên — 0981689892. Nghiêm cấm sao chép dưới mọi hình thức.</b>
+  <b>© 2026 Nguyễn Đức Kiên — 0981689892.</b> Nghiêm cấm sao chép dưới mọi hình thức.
 </footer>
 
 <div class="lock" id="lockOverlay">
-  <div class="lock-card">
-    <h2>🔒 Phần mềm có khóa</h2>
-    <p style="color:#6b7566;font-size:14px;margin:0">Nhập Key bản quyền để sử dụng</p>
+  <div class="box">
+    <h2 style="margin:0 0 6px;color:var(--brand-dark)">Phần mềm có khóa</h2>
+    <p class="muted" style="margin:0">Nhập Key bản quyền để sử dụng</p>
     <input id="keyInput" placeholder="VD: PGL-XXXX-XXXX" autocomplete="off">
-    <div class="err" id="keyErr"></div>
-    <button class="btn-primary" style="width:100%" onclick="unlock()">Mở khóa</button>
-    <div class="cr">© 2026 Nguyễn Đức Kiên — 0981689892<br>Nghiêm cấm sao chép dưới mọi hình thức.</div>
+    <div class="muted" id="keyErr" style="color:var(--danger);min-height:20px"></div>
+    <button class="btn lg" style="width:100%" onclick="unlock()">Mở khóa</button>
+    <p class="muted" style="margin-top:18px;font-size:12px">© 2026 Nguyễn Đức Kiên — 0981689892<br>Nghiêm cấm sao chép dưới mọi hình thức.</p>
   </div>
 </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-let lastStatus = null;
+let lastStatus = null, autoBusy = false, aiNoteHold = false;
+let pfData = null, pfRoles = [], pfTags = [];
+let view = "main";
 
-function setDT(input, d) {
-  const p = (n) => String(n).padStart(2, "0");
-  input.value = d.getFullYear() + "-" + p(d.getMonth()+1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
+/* ============ Dieu huong ============ */
+function switchView(to) {
+  view = to || (view === "main" ? "settings" : "main");
+  $("viewMain").hidden = view !== "main";
+  $("viewSettings").hidden = view !== "settings";
+  $("navLabel").textContent = view === "main" ? "Cài đặt" : "Trang chính";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (view === "settings" && !pfData) loadProfile();
 }
 
+/* ============ Khoang thoi gian ============ */
+function setDT(el, d) {
+  const p = (n) => String(n).padStart(2, "0");
+  el.value = d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
+}
 function quickRange(kind) {
   const now = new Date();
   let from = new Date(now), to = new Date(now);
-  if (kind === "today") { from.setHours(0,0,0,0); }
-  else if (kind === "morning") { from.setHours(0,0,0,0); to = new Date(now); to.setHours(12,0,0,0); }
-  else if (kind === "afternoon") { from.setHours(12,0,0,0); }
-  else if (kind === "24h") { from = new Date(now.getTime() - 24*3600*1000); }
-  else if (kind === "yesterday") {
-    from = new Date(now); from.setDate(from.getDate()-1); from.setHours(0,0,0,0);
-    to = new Date(from); to.setHours(23,59,0,0);
-  }
-  else if (kind === "3days") { from = new Date(now); from.setDate(from.getDate()-3); }
-  else if (kind === "week") { from = new Date(now); from.setDate(from.getDate()-7); }
+  if (kind === "today") from.setHours(0, 0, 0, 0);
+  else if (kind === "morning") { from.setHours(0, 0, 0, 0); to.setHours(12, 0, 0, 0); }
+  else if (kind === "afternoon") from.setHours(12, 0, 0, 0);
+  else if (kind === "24h") from = new Date(now.getTime() - 864e5);
+  else if (kind === "yesterday") { from.setDate(from.getDate() - 1); from.setHours(0, 0, 0, 0); to = new Date(from); to.setHours(23, 59, 0, 0); }
+  else if (kind === "3days") from.setDate(from.getDate() - 3);
+  else if (kind === "week") from.setDate(from.getDate() - 7);
   setDT($("fromInput"), from); setDT($("toInput"), to);
+  document.querySelectorAll("#quickChips .chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.k === kind)));
 }
+document.querySelectorAll("#quickChips .chip").forEach((c) => c.addEventListener("click", () => quickRange(c.dataset.k)));
 
-async function unlock() {
-  const key = $("keyInput").value.trim();
-  if (!key) { $("keyErr").textContent = "Nhập Key trước đã."; return; }
-  const r = await (await fetch("/api/unlock", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key }),
-  })).json();
-  if (r.ok) { $("lockOverlay").classList.remove("show"); location.reload(); }
-  else { $("keyErr").textContent = r.note || "Key không đúng."; }
-}
+/* ============ Trang thai ============ */
+const PILL = {
+  chua_ket_noi: ["off", "Chưa kết nối Zalo"],
+  cho_quet: ["wait", "Chờ quét mã QR"],
+  dang_ket_noi: ["wait", "Đang kết nối"],
+  da_ket_noi: ["", "Đang hoạt động"],
+  loi: ["err", "Lỗi kết nối"],
+};
 
 async function refreshStatus() {
   try {
     const res = await fetch("/api/status");
-    if (res.status === 401) {
-      $("lockOverlay").classList.add("show");
-      $("statusText").textContent = "Đang khóa — nhập Key để sử dụng";
-      return;
-    }
+    if (res.status === 401) { $("lockOverlay").classList.add("on"); return; }
     const s = await res.json();
     lastStatus = s;
-    const dot = $("dot");
-    dot.className = "dot " + (s.status === "da_ket_noi" ? "on" : s.status === "cho_quet" || s.status === "dang_ket_noi" ? "wait" : s.status === "loi" ? "err" : "");
-    const texts = {
-      chua_ket_noi: "Chưa kết nối Zalo",
-      cho_quet: "Đang chờ quét mã QR...",
-      dang_ket_noi: "Đã quét — đang kết nối...",
-      da_ket_noi: "Đang hoạt động" + (s.account ? " — " + s.account : "") + " (chỉ đọc)",
-      loi: "Có lỗi kết nối",
-    };
-    $("statusText").textContent = texts[s.status] || s.status;
-    $("connectError").textContent = s.error || "";
-
-    const body = $("connectBody");
-    if (s.status === "cho_quet" && s.qrImage) {
-      body.innerHTML = '<div class="qr-box"><img src="' + s.qrImage + '" alt="QR">' +
-        '<div class="steps">1. Mở <b>Zalo trên điện thoại</b><br>2. Bấm biểu tượng <b>QR</b> (góc trên, mục Danh bạ/Cài đặt)<br>3. Quét mã này và bấm <b>Đồng ý</b></div></div>';
-    } else if (s.status === "cho_quet") {
-      body.innerHTML = '<p class="hint"><span class="spinner" style="border-color:#cde3bd;border-top-color:#6CB545"></span>Đang tạo mã QR...</p>';
-    } else if (s.status === "dang_ket_noi") {
-      body.innerHTML = '<p class="hint">Đã quét thành công' + (s.account ? " — chào " + s.account : "") + '. Đang hoàn tất kết nối...</p>';
-    } else if (s.status === "da_ket_noi") {
-      body.innerHTML = '<p style="margin:0;font-weight:600;color:#2c7a10">✓ Đã kết nối' + (s.account ? ": " + s.account : "") + ' — hệ thống đang tự ghi nhận tin nhắn.</p>';
-    } else {
-      body.innerHTML = '<button class="btn-primary" id="btnConnect">Kết nối Zalo của tôi</button>';
-      $("btnConnect").onclick = connect;
-    }
-
     const on = s.status === "da_ket_noi";
-    $("profileCard").style.display = on ? "block" : "none";
-    if (on && !pfData) loadProfile();
-    $("statsBox").style.display = on ? "flex" : "none";
-    // Tu khoi dong cung Windows
-    const au = s.autostart || {};
-    $("autoLine").style.display = au.supported ? "flex" : "none";
-    if (au.supported && !autoBusy) {
-      $("chkAuto").checked = Boolean(au.enabled);
-      $("autoNote").textContent = au.stale
-        ? "(đang trỏ tới bản cũ — tắt rồi bật lại để sửa)"
-        : (au.enabled ? "✓ đang bật" : "");
+
+    const info = PILL[s.status] || ["off", s.status];
+    $("pill").className = "pill " + info[0];
+    $("pillText").textContent = on ? "Đang hoạt động (chỉ đọc)" : info[1];
+
+    const prof = s.scan && s.scan.profile;
+    $("who").hidden = !(on && prof);
+    if (on && prof) {
+      $("whoAvatar").src = prof.avatar || "";
+      $("whoName").textContent = (pfData && pfData.hoTen) || prof.name || s.account || "";
+      $("whoRole").textContent = (pfData && (pfData.chucDanh || pfData.donVi)) || prof.phone || "";
     }
-    $("scanLine").style.display = on ? "flex" : "none";
+
+    $("needSetup").hidden = on;
+    $("scanCard").hidden = !on;
+    $("reportCard").hidden = !on;
+    $("listCard").hidden = !on;
+
+    if (on && !pfData) loadProfile();
+
     const sc = s.scan;
     if (on && sc) {
-      // Ho so tai khoan
-      if (sc.profile) {
-        $("profileBox").style.display = "flex";
-        $("pAvatar").src = sc.profile.avatar || "";
-        $("pName").textContent = sc.profile.name || s.account || "";
-        $("pPhone").textContent = sc.profile.phone ? "SĐT: " + sc.profile.phone : "";
-      }
-      $("stGroups").textContent = sc.groupCount ?? "–";
-      const um = (sc.unreadMarkGroups ?? 0) + (sc.unreadMarkUsers ?? 0);
-      $("stUnread").textContent = (sc.unreadMarkGroups == null) ? "–" : um;
-      $("stMsgs").textContent = sc.capturedToday ?? s.msgToday;
-      $("stNew").textContent = sc.newSinceLastScan ?? 0;
-      $("scanInfo").textContent = "Tự quét " + s.scanMinutes + " phút/lần — lần gần nhất: " +
-        new Date(sc.scannedAt).toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit"}) +
-        (s.scanBusy ? " (đang quét...)" : "");
-    } else {
-      $("profileBox").style.display = "none";
-      $("stMsgs").textContent = s.msgToday;
-      if (on) $("scanInfo").textContent = "Đang quét lần đầu...";
+      $("stGroups").textContent = sc.groupCount != null ? sc.groupCount : "–";
+      const um = (sc.unreadMarkGroups || 0) + (sc.unreadMarkUsers || 0);
+      $("stUnread").textContent = sc.unreadMarkGroups == null ? "–" : um;
+      $("stMsgs").textContent = sc.capturedToday != null ? sc.capturedToday : s.msgToday;
+      $("stNew").textContent = sc.newSinceLastScan || 0;
+      const t = new Date(sc.scannedAt);
+      const p = (n) => String(n).padStart(2, "0");
+      $("scanSub").textContent = "Tự quét " + s.scanMinutes + " phút/lần — lần gần nhất lúc " +
+        p(t.getHours()) + ":" + p(t.getMinutes()) + (s.scanBusy ? " (đang quét…)" : "");
     }
     $("stCron").textContent = (s.summaryCron || "").startsWith("0 18") ? "18:00" : s.summaryCron;
-    $("chkEmail").disabled = !s.smtpConfigured;
-    $("emailNote").textContent = s.smtpConfigured ? "" : "(chưa cài đặt email — báo cáo vẫn xem được tại đây)";
 
-    // Trang thai bo nao AI
+    const body = $("connectBody");
+    $("connectError").style.display = s.error ? "flex" : "none";
+    $("connectError").textContent = s.error || "";
+    $("connectActions").hidden = !on;
+    if (s.status === "cho_quet" && s.qrImage) {
+      body.innerHTML = '<div class="qr"><img src="' + s.qrImage + '" alt="Mã QR đăng nhập Zalo">' +
+        "<ol><li>Mở <b>Zalo trên điện thoại</b></li><li>Bấm biểu tượng <b>QR</b></li><li>Quét mã này rồi bấm <b>Đồng ý</b></li></ol></div>";
+    } else if (s.status === "cho_quet") {
+      body.innerHTML = '<p class="muted">Đang tạo mã QR…</p>';
+    } else if (s.status === "dang_ket_noi") {
+      body.innerHTML = '<p class="muted">Đã quét thành công' + (s.account ? " — chào " + s.account : "") + ". Đang hoàn tất…</p>";
+    } else if (on) {
+      body.innerHTML = '<div class="alert ok" style="margin-top:0"><svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>' +
+        "<div>Đã kết nối: <b>" + (s.account || "") + "</b> — phần mềm đang tự ghi nhận tin nhắn.</div></div>";
+    } else {
+      body.innerHTML = '<button class="btn lg" onclick="connect()">Kết nối Zalo của tôi</button>';
+    }
+
+    const au = s.autostart || {};
+    $("autoRow").hidden = !au.supported;
+    if (au.supported && !autoBusy) {
+      $("chkAuto").checked = Boolean(au.enabled);
+      $("autoNote").textContent = au.stale ? "(đang trỏ tới bản cũ — tắt rồi bật lại)" : (au.enabled ? "Đang bật" : "");
+    }
+
     if (s.ai) {
       const ai = s.ai;
-      $("provClaude").classList.toggle("on", ai.provider === "claude-code");
-      $("provCodex").classList.toggle("on", ai.provider === "codex");
-      const who = ai.email ? ' — ' + ai.email + (ai.org ? ' (' + ai.org + ')' : '') : (ai.ready && ai.provider === "codex" ? ' — tài khoản ChatGPT' : '');
+      $("provClaude").setAttribute("aria-pressed", String(ai.provider === "claude-code"));
+      $("provCodex").setAttribute("aria-pressed", String(ai.provider === "codex"));
+      const who = ai.email ? " — " + ai.email + (ai.org ? " (" + ai.org + ")" : "")
+        : (ai.ready && ai.provider === "codex" ? " — tài khoản ChatGPT" : "");
       $("aiStatus").innerHTML = ai.ready
-        ? '<span style="color:#2c7a10">✓ Sẵn sàng</span>' + who
-        : '<span style="color:#c0392b">✗ Chưa sẵn sàng</span>';
-      if (!aiNoteHold) $("aiNote").textContent = ai.ready ? "" : ai.detail || "";
-      $("btnAiLogout").style.display = ai.ready && ai.provider !== "openai" ? "inline-block" : "none";
+        ? '<span style="color:var(--ok)">Sẵn sàng</span>' + who
+        : '<span style="color:var(--danger)">Chưa sẵn sàng</span>';
+      if (!aiNoteHold) $("aiNote").textContent = ai.ready ? "" : (ai.detail || "");
+      $("btnAiLogout").hidden = !(ai.ready && ai.provider !== "openai");
     }
-  } catch (e) { $("statusText").textContent = "Mất kết nối với phần mềm — kiểm tra cửa sổ đen có đang chạy không."; }
+
+    $("chkEmail").disabled = !s.smtpConfigured;
+    $("emailNote").textContent = s.smtpConfigured ? "" : "(chưa cài đặt email — báo cáo vẫn xem được tại đây)";
+  } catch (e) {
+    $("pill").className = "pill err";
+    $("pillText").textContent = "Mất kết nối phần mềm";
+  }
 }
 
+/* ============ Nhip cap nhat ============ */
+const POLL_FAST = 2500, POLL_SLOW = 300000;
+let pollTimer = null, pollMs = 0;
+function schedulePoll() {
+  const st = lastStatus ? lastStatus.status : null;
+  const want = (st === "cho_quet" || st === "dang_ket_noi" || st === null) ? POLL_FAST : POLL_SLOW;
+  if (want === pollMs && pollTimer) return;
+  pollMs = want;
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => refreshStatus().then(schedulePoll), pollMs);
+}
+
+/* ============ Ket noi Zalo ============ */
 async function connect() {
   await fetch("/api/connect", { method: "POST" });
-  await refreshStatus();
-  schedulePoll(); // chuyen sang nhip nhanh de bat ma QR
+  await refreshStatus(); schedulePoll();
 }
-
+async function relogin() {
+  if (!confirm("Đăng nhập lại từ đầu?\nPhiên hiện tại sẽ ngắt và mã QR MỚI sẽ hiện ra để quét.")) return;
+  const b = $("btnRelogin"); b.disabled = true; b.textContent = "Đang tạo QR mới…";
+  try { await fetch("/api/relogin", { method: "POST" }); } catch (e) {}
+  await refreshStatus(); schedulePoll();
+  b.disabled = false; b.textContent = "Đăng nhập lại (QR mới)";
+}
 async function rescan() {
-  const b = $("btnScan");
-  b.disabled = true; b.textContent = "Đang quét...";
+  const b = $("btnScan"); b.disabled = true;
+  const old = b.innerHTML; b.innerHTML = '<span class="spin"></span>Đang quét…';
   try { await fetch("/api/scan", { method: "POST" }); } catch (e) {}
   await refreshStatus();
-  b.disabled = false; b.textContent = "Quét lại ngay";
+  b.disabled = false; b.innerHTML = old;
 }
-
-let aiNoteHold = false; // giu thong bao huong dan dang nhap, khong bi refresh ghi de ngay
-
-
-// ===== Ho so vai tro =====
-const GOI_Y_TAG = ["phê duyệt/ký", "khách hàng", "deadline", "sự cố kỹ thuật", "thanh toán/hoá đơn",
-  "hợp đồng", "nhân sự", "mẫu thử nghiệm", "chứng nhận", "khiếu nại", "thiết bị", "báo giá"];
-let pfData = null, pfRoles = [], pfTags = [];
-
-function renderRoles() {
-  const box = $("pfRoles");
-  box.innerHTML = "";
-  pfRoles.forEach((r) => {
-    const b = document.createElement("button");
-    b.className = "btn-ghost prov" + (pfData.vaiTro === r.ma ? " on" : "");
-    b.textContent = r.ten;
-    b.title = r.moTa || "";
-    b.addEventListener("click", () => { pfData.vaiTro = r.ma; renderRoles(); });
-    box.appendChild(b);
-  });
-}
-
-function renderTags() {
-  const box = $("pfTags");
-  box.innerHTML = "";
-  const all = Array.from(new Set(GOI_Y_TAG.concat(pfTags)));
-  all.forEach((t) => {
-    const b = document.createElement("button");
-    b.className = "tag-btn" + (pfTags.includes(t) ? " on" : "");
-    b.textContent = t;
-    b.addEventListener("click", () => toggleTag(t));
-    box.appendChild(b);
-  });
-}
-
-function toggleTag(t) {
-  const i = pfTags.indexOf(t);
-  if (i >= 0) pfTags.splice(i, 1); else pfTags.push(t);
-  renderTags();
-}
-
-async function loadProfile() {
-  try {
-    const r = await (await fetch("/api/profile")).json();
-    if (!r.ok) return;
-    pfData = r.profile; pfRoles = r.vaiTroList || []; pfTags = (pfData.quanTam || []).slice();
-    $("pfTen").value = pfData.hoTen || "";
-    $("pfChuc").value = pfData.chucDanh || "";
-    $("pfDonVi").value = pfData.donVi || "";
-    $("pfRieng").value = pfData.huongDanRieng || "";
-    $("pfPreview").textContent = r.xemTruoc || "";
-    $("pfBadge").textContent = pfData.daLuu ? "" : "— chưa thiết lập, AI đang dùng gợi ý tự động";
-    renderRoles(); renderTags();
-  } catch (e) {}
-}
-
-async function saveProfile() {
-  const btn = $("pfSave");
-  btn.disabled = true; $("pfNote").textContent = "Đang lưu...";
-  try {
-    const body = {
-      hoTen: $("pfTen").value, chucDanh: $("pfChuc").value, donVi: $("pfDonVi").value,
-      maDonVi: pfData?.maDonVi || "", vaiTro: pfData?.vaiTro || "quan-ly",
-      quanTam: pfTags, huongDanRieng: $("pfRieng").value,
-    };
-    const r = await (await fetch("/api/profile", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    })).json();
-    if (r.ok) {
-      pfData = r.profile;
-      $("pfPreview").textContent = r.xemTruoc || "";
-      $("pfBadge").textContent = "";
-      $("pfNote").textContent = "✓ Đã lưu — báo cáo từ giờ sẽ theo vai trò này";
-    } else { $("pfNote").textContent = r.note || "Không lưu được"; }
-  } catch (e) { $("pfNote").textContent = "Lỗi: " + e.message; }
-  btn.disabled = false;
-}
-
-function togglePreview() {
-  const el = $("pfPreview");
-  el.style.display = el.style.display === "none" ? "block" : "none";
-}
-
-let autoBusy = false;
 async function toggleAuto() {
-  const cb = $("chkAuto");
-  autoBusy = true;
-  $("autoNote").textContent = "Đang lưu...";
+  const cb = $("chkAuto"); autoBusy = true; $("autoNote").textContent = "Đang lưu…";
   try {
     const r = await (await fetch("/api/autostart", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled: cb.checked }),
     })).json();
-    $("autoNote").textContent = r.ok
-      ? (cb.checked ? "✓ Đã bật — lần sau bật máy phần mềm tự chạy" : "Đã tắt")
-      : (r.note || "Không lưu được");
+    $("autoNote").textContent = r.ok ? (cb.checked ? "Đã bật — lần sau bật máy phần mềm tự chạy" : "Đã tắt") : (r.note || "Không lưu được");
     if (!r.ok) cb.checked = !cb.checked;
   } catch (e) { $("autoNote").textContent = "Lỗi: " + e.message; cb.checked = !cb.checked; }
   autoBusy = false;
 }
 
+/* ============ Bo nao AI ============ */
 async function aiCheck() {
-  aiNoteHold = false;
-  $("aiStatus").textContent = "Đang kiểm tra...";
+  aiNoteHold = false; $("aiStatus").textContent = "Đang kiểm tra…";
   try { await fetch("/api/ai/check", { method: "POST" }); } catch (e) {}
   refreshStatus();
 }
-
 async function setProv(p) {
-  aiNoteHold = false;
-  $("aiStatus").textContent = "Đang chuyển...";
+  aiNoteHold = false; $("aiStatus").textContent = "Đang chuyển…";
   try {
     await fetch("/api/ai/provider", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -474,53 +562,104 @@ async function setProv(p) {
   } catch (e) {}
   refreshStatus();
 }
-
 async function aiLogin() {
   const r = await (await fetch("/api/ai/login", { method: "POST" })).json();
-  $("aiNote").textContent = r.note || "";
-  aiNoteHold = true;
+  $("aiNote").textContent = r.note || ""; aiNoteHold = true;
   setTimeout(() => { aiNoteHold = false; }, 60000);
 }
-
 async function aiLogout() {
-  if (!confirm("Đăng xuất tài khoản AI hiện tại? Sau đó bạn có thể đăng nhập tài khoản khác.")) return;
-  aiNoteHold = false;
-  $("aiStatus").textContent = "Đang đăng xuất...";
+  if (!confirm("Đăng xuất tài khoản AI hiện tại?")) return;
+  aiNoteHold = false; $("aiStatus").textContent = "Đang đăng xuất…";
   try { await fetch("/api/ai/logout", { method: "POST" }); } catch (e) {}
   refreshStatus();
 }
 
-async function relogin() {
-  if (!confirm("Đăng nhập lại từ đầu?\nPhiên hiện tại sẽ ngắt và mã QR MỚI sẽ hiện ra để quét bằng điện thoại.")) return;
-  const b = $("btnRelogin");
-  b.disabled = true; b.textContent = "Đang tạo QR mới...";
-  try { await fetch("/api/relogin", { method: "POST" }); } catch (e) {}
-  await refreshStatus();
-  schedulePoll(); // chuyen sang nhip nhanh de bat ma QR moi
-  b.disabled = false; b.textContent = "Đăng nhập lại (QR mới)";
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
+/* ============ Ho so vai tro ============ */
+const GOI_Y_TAG = ["phê duyệt/ký", "khách hàng", "deadline", "sự cố kỹ thuật", "thanh toán/hoá đơn",
+  "hợp đồng", "nhân sự", "mẫu thử nghiệm", "chứng nhận", "khiếu nại", "thiết bị", "báo giá"];
 
+function renderRoles() {
+  const box = $("pfRoles"); box.innerHTML = "";
+  pfRoles.forEach((r) => {
+    const b = document.createElement("button");
+    b.setAttribute("aria-pressed", String(pfData.vaiTro === r.ma));
+    b.textContent = r.ten; b.title = r.moTa || "";
+    b.addEventListener("click", () => { pfData.vaiTro = r.ma; renderRoles(); });
+    box.appendChild(b);
+  });
+}
+function renderTags() {
+  const box = $("pfTags"); box.innerHTML = "";
+  Array.from(new Set(GOI_Y_TAG.concat(pfTags))).forEach((t) => {
+    const b = document.createElement("button");
+    b.className = "tag"; b.setAttribute("aria-pressed", String(pfTags.includes(t)));
+    b.textContent = t;
+    b.addEventListener("click", () => toggleTag(t));
+    box.appendChild(b);
+  });
+}
+function toggleTag(t) {
+  const i = pfTags.indexOf(t);
+  if (i >= 0) pfTags.splice(i, 1); else pfTags.push(t);
+  renderTags();
+}
+async function loadProfile() {
+  try {
+    const r = await (await fetch("/api/profile")).json();
+    if (!r.ok) return;
+    pfData = r.profile; pfRoles = r.vaiTroList || []; pfTags = (pfData.quanTam || []).slice();
+    $("profileCard").hidden = false;
+    $("pfTen").value = pfData.hoTen || "";
+    $("pfChuc").value = pfData.chucDanh || "";
+    $("pfDonVi").value = pfData.donVi || "";
+    $("pfRieng").value = pfData.huongDanRieng || "";
+    $("pfPreview").textContent = r.xemTruoc || "";
+    $("pfBadge").textContent = pfData.daLuu ? "" : "— chưa thiết lập, đang dùng gợi ý tự động";
+    renderRoles(); renderTags();
+  } catch (e) {}
+}
+async function saveProfile() {
+  const btn = $("pfSave"); btn.disabled = true; $("pfNote").textContent = "Đang lưu…";
+  try {
+    const r = await (await fetch("/api/profile", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        hoTen: $("pfTen").value, chucDanh: $("pfChuc").value, donVi: $("pfDonVi").value,
+        maDonVi: (pfData && pfData.maDonVi) || "", vaiTro: (pfData && pfData.vaiTro) || "quan-ly",
+        quanTam: pfTags, huongDanRieng: $("pfRieng").value,
+      }),
+    })).json();
+    if (r.ok) {
+      pfData = r.profile;
+      $("pfPreview").textContent = r.xemTruoc || "";
+      $("pfBadge").textContent = "";
+      $("pfNote").textContent = "Đã lưu — báo cáo từ giờ theo vai trò này";
+      refreshStatus();
+    } else $("pfNote").textContent = r.note || "Không lưu được";
+  } catch (e) { $("pfNote").textContent = "Lỗi: " + e.message; }
+  btn.disabled = false;
+}
+function togglePreview() { $("pfPreview").hidden = !$("pfPreview").hidden; }
+
+/* ============ Bao cao ============ */
 async function makeReport() {
   const btn = $("btnReport"), err = $("reportError"), box = $("reportResult");
-  err.textContent = ""; box.style.display = "none";
+  err.style.display = "none"; box.style.display = "none";
   const from = $("fromInput").value, to = $("toInput").value;
-  if (!from || !to) { err.textContent = "Chọn thời gian Từ / Đến trước đã."; return; }
+  if (!from || !to) { err.style.display = "flex"; err.textContent = "Chọn thời gian Từ / Đến trước đã."; return; }
+
   btn.disabled = true;
   let jobPoll = null;
   try {
-    btn.innerHTML = '<span class="spinner"></span>Đang quét lịch sử nhóm...';
-
-    // Theo doi tien do trong luc chay (keo lich su -> tom tat)
+    btn.innerHTML = '<span class="spin"></span>Đang chuẩn bị…';
     jobPoll = setInterval(async () => {
       try {
         const st = await (await fetch("/api/status")).json();
         const j = st.job;
         if (j && j.phase) {
-          btn.innerHTML = '<span class="spinner"></span>' +
-            (j.phase === "backfill"
-              ? (j.total ? 'Quét lịch sử ' + j.done + '/' + j.total + ' nhóm...' : 'Đang quét lịch sử nhóm...')
-              : 'AI đang đọc và tóm tắt...');
+          btn.innerHTML = '<span class="spin"></span>' + (j.phase === "backfill"
+            ? (j.total ? "Quét " + j.done + "/" + j.total + " nhóm…" : "Đang quét lịch sử…")
+            : "AI đang tóm tắt…");
         }
       } catch (e) {}
     }, 2000);
@@ -530,23 +669,22 @@ async function makeReport() {
       body: JSON.stringify({ from, to, email: $("chkEmail").checked }),
     })).json();
     clearInterval(jobPoll); jobPoll = null;
-    if (!r.ok) { err.textContent = r.note || "Không tạo được báo cáo."; }
+
+    if (!r.ok) { err.style.display = "flex"; err.textContent = r.note || "Không tạo được báo cáo."; }
     else {
-      box.style.display = "block";
       const cov = r.coverage;
-      const covHtml = (cov && cov.gaps && cov.gaps.length)
-        ? '<div style="color:#b9770e;margin-bottom:6px">⚠ Phần mềm chỉ chạy ' + cov.phanTramCoDuLieu +
-          '% khoảng thời gian này — ' + cov.gaps.length + ' quãng không có dữ liệu (lúc đó phần mềm không chạy).</div>'
-        : '';
-      box.innerHTML = covHtml + (r.backfill ? '↻ Đã quét ' + r.backfill.groups + ' nhóm, lấy thêm <b>' + r.backfill.added + ' tin cũ</b>.<br>' : '') +
-        '✓ Đã tóm tắt <b>' + r.count + ' tin</b>' +
-        (r.enriched ? ' (đọc ' + r.enriched + ' ảnh/tài liệu)' : '') +
-        (r.mailed ? ' — đã gửi email' : '') +
-        '.<br><a href="' + r.relUrl + '" target="_blank">Mở báo cáo: ' + r.label + '</a>';
-      window.open(r.relUrl, "_blank");
+      let html = "";
+      if (cov && cov.gaps && cov.gaps.length) {
+        html += '<div style="color:var(--warn);margin-bottom:8px">Phần mềm chỉ chạy ' + cov.phanTramCoDuLieu +
+          "% khoảng thời gian này — " + cov.gaps.length + " quãng không có dữ liệu.</div>";
+      }
+      html += "Đã tóm tắt <b>" + r.count + " tin</b>" + (r.enriched ? " (đọc " + r.enriched + " ảnh/tài liệu)" : "") +
+        (r.mailed ? " — đã gửi email" : "") + '.<br><a href="' + r.relUrl + '" target="_blank" rel="noopener">Mở báo cáo: ' + r.label + "</a>";
+      box.style.display = "flex"; box.innerHTML = html;
+      window.open(r.relUrl, "_blank", "noopener");
       loadReports();
     }
-  } catch (e) { err.textContent = "Lỗi: " + e.message; }
+  } catch (e) { err.style.display = "flex"; err.textContent = "Lỗi: " + e.message; }
   if (jobPoll) clearInterval(jobPoll);
   btn.disabled = false; btn.textContent = "Tạo báo cáo";
   refreshStatus();
@@ -555,40 +693,38 @@ async function makeReport() {
 async function loadReports() {
   try {
     const list = await (await fetch("/api/reports")).json();
-    const tb = $("reportTable").querySelector("tbody");
-    if (!list.length) { tb.innerHTML = '<tr><td class="hint">Chưa có báo cáo nào.</td></tr>'; return; }
+    const tb = $("reportRows");
+    if (!list.length) { tb.innerHTML = '<tr><td colspan="3" class="empty">Chưa có báo cáo nào.</td></tr>'; return; }
     tb.innerHTML = list.map((r) =>
-      '<tr><td><a href="' + r.url + '" target="_blank">' + r.name + '</a></td>' +
-      '<td><span class="tag">' + r.kind + '</span></td>' +
-      '<td style="color:var(--muted)">' + new Date(r.mtime).toLocaleString("vi-VN") + '</td></tr>'
+      '<tr><td><a href="' + r.url + '" target="_blank" rel="noopener">' + r.name + "</a></td>" +
+      '<td><span class="badge">' + r.kind + "</span></td>" +
+      '<td class="muted">' + new Date(r.mtime).toLocaleString("vi-VN") + "</td></tr>"
     ).join("");
   } catch (e) {}
 }
 
-// ===== Nhip tu cap nhat trang thai =====
-// Nhanh (2,5 giay) CHI khi dang quet QR / dang ket noi — luc do can phan hoi tuc thi.
-// Cham (5 phut) khi da ket noi on dinh — tranh goi server lien tuc.
-const POLL_FAST = 2500, POLL_SLOW = 300000;
-let pollTimer = null, pollMs = 0;
-
-function schedulePoll() {
-  const st = lastStatus ? lastStatus.status : null;
-  const want = (st === "cho_quet" || st === "dang_ket_noi" || st === null) ? POLL_FAST : POLL_SLOW;
-  if (want === pollMs && pollTimer) return; // giu nguyen nhip hien tai
-  pollMs = want;
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(() => { refreshStatus().then(schedulePoll); }, pollMs);
+/* ============ Khoa phan mem ============ */
+async function unlock() {
+  const key = $("keyInput").value.trim();
+  if (!key) { $("keyErr").textContent = "Nhập Key trước đã."; return; }
+  const r = await (await fetch("/api/unlock", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  })).json();
+  if (r.ok) location.reload(); else $("keyErr").textContent = r.note || "Key không đúng.";
 }
-
-document.getElementById("pfTagNew").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    const v = e.target.value.trim();
-    if (v && !pfTags.includes(v)) { pfTags.push(v); renderTags(); }
-    e.target.value = "";
-  }
+$("keyInput").addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
+$("pfTagNew").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const v = e.target.value.trim();
+  if (v && !pfTags.includes(v)) { pfTags.push(v); renderTags(); }
+  e.target.value = "";
 });
 
+/* ============ Khoi dong ============ */
 quickRange("today");
+switchView("main");
 refreshStatus().then(schedulePoll);
 loadReports();
 </script>
