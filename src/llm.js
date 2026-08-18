@@ -152,7 +152,7 @@ function friendlyLlmError(status, body) {
 // ===== API chung cho toan he thong =====
 
 // messages: mang { ts, groupName, sender, text }
-export async function summarize(messages) {
+export async function summarize(messages, customSystemPrompt) {
   if (!messages.length) return "<p>Khong co tin nhan moi trong khoang thoi gian nay.</p>";
 
   const byGroup = {};
@@ -169,11 +169,12 @@ export async function summarize(messages) {
   }
 
   const provider = getProvider();
-  const fullPrompt = `${SYSTEM_PROMPT}\n\n=== LOG TIN NHAN ===\n${logText}`;
+  const SYS = customSystemPrompt || SYSTEM_PROMPT;
+  const fullPrompt = `${SYS}\n\n=== LOG TIN NHAN ===\n${logText}`;
   if (provider === "claude-code") return stripFence(await runClaude(fullPrompt));
   if (provider === "codex") return stripFence(await runCodex(fullPrompt));
   return chatOpenAI([
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: SYS },
     { role: "user", content: `Log tin nhan:\n${logText}` },
   ]);
 }

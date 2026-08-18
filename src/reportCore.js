@@ -9,6 +9,7 @@ import { summarize } from "./llm.js";
 import { sendBrief } from "./mailer.js";
 import { sourceActivityHtml, pageHtml } from "./render.js";
 import { enrichAttachments } from "./enrich.js";
+import { getProfile, buildSystemPrompt } from "./profile.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOGS_DIR = path.join(__dirname, "..", "logs");
@@ -41,7 +42,7 @@ export function saveReportFile(from, to, fullHtml, accountId) {
 }
 
 // Tao bao cao cho khoang [from, to] cua 1 tai khoan. Tra ve { ok, count, file?, relUrl?, label, note? }
-export async function runRangeReport(from, to, { email = false, accountId = null } = {}) {
+export async function runRangeReport(from, to, { email = false, accountId = null, displayName = "" } = {}) {
   const label = `${fmt(from)} - ${fmt(to)}`;
   const messages = getMessagesInRange(from.getTime(), to.getTime(), accountId);
 
@@ -50,7 +51,8 @@ export async function runRangeReport(from, to, { email = false, accountId = null
   }
 
   const en = await enrichAttachments(messages);
-  const aiHtml = await summarize(messages);
+  const sysPrompt = buildSystemPrompt(getProfile(accountId, displayName));
+  const aiHtml = await summarize(messages, sysPrompt);
   const body = sourceActivityHtml(messages) + aiHtml;
 
   const saved = saveReportFile(from, to, pageHtml("Báo cáo Zalo", label, body), accountId);

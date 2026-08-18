@@ -31,6 +31,11 @@
   .btn-primary:hover:not(:disabled) { background:#5aa437; }
   .btn-blue { background:var(--blue); color:#fff; }
   .btn-ghost { background:#eef3ea; color:var(--text); font-weight:500; padding:10px 14px; font-size:14px; }
+  .pfgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .pfgrid label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
+  .pfgrid input { width:100%; padding:10px 12px; border:1.5px solid #d7e0d2; border-radius:10px; font-size:15px; font-family:inherit; }
+  .tag-btn { border:1.5px solid #d7e0d2; background:#fff; border-radius:20px; padding:7px 14px; font-size:13px; cursor:pointer; }
+  .tag-btn.on { background:#6CB545; color:#fff; border-color:#6CB545; font-weight:600; }
   .prov { font-size:15px; padding:12px 20px; border:2px solid transparent; }
   .prov.on { background:#e8f5df; border-color:var(--green); color:#2c7a10; font-weight:700; }
   .qr-box { text-align:center; padding:10px; }
@@ -132,9 +137,38 @@
     <div class="note" id="aiNote"></div>
   </section>
 
+  <!-- VAI TRO -->
+  <section class="card" id="profileCard">
+    <h2>3. Vai trò của bạn <span id="pfBadge" style="font-size:13px;font-weight:400;color:#c0392b"></span></h2>
+    <p class="hint">AI sẽ tóm tắt theo đúng công việc của bạn. Mỗi người một vai trò, báo cáo sẽ khác nhau.</p>
+
+    <div class="pfgrid">
+      <div><label>Họ tên</label><input id="pfTen" placeholder="VD: Nguyễn Đức Kiên"></div>
+      <div><label>Chức danh</label><input id="pfChuc" placeholder="VD: Giám đốc Trung tâm"></div>
+      <div><label>Đơn vị / Phòng ban</label><input id="pfDonVi" placeholder="VD: Trung tâm Điều hành"></div>
+    </div>
+
+    <label style="display:block;margin:14px 0 6px;font-size:13px;color:var(--muted)">Vai trò khi đọc Zalo</label>
+    <div id="pfRoles" class="quick"></div>
+
+    <label style="display:block;margin:8px 0 6px;font-size:13px;color:var(--muted)">Chủ đề cần đặc biệt để ý (bấm chọn, có thể chọn nhiều)</label>
+    <div id="pfTags" class="quick"></div>
+    <input id="pfTagNew" placeholder="Thêm chủ đề riêng rồi bấm Enter (VD: khách hàng Anritsu)" style="width:100%;padding:10px 12px;border:1.5px solid #d7e0d2;border-radius:10px;font-size:14px;margin-bottom:12px">
+
+    <label style="display:block;margin:8px 0 6px;font-size:13px;color:var(--muted)">Dặn dò riêng cho AI (không bắt buộc)</label>
+    <textarea id="pfRieng" rows="3" placeholder="VD: Luôn tách riêng việc của chi nhánh HCM. Bỏ qua các nhóm xã giao." style="width:100%;padding:10px 12px;border:1.5px solid #d7e0d2;border-radius:10px;font-size:14px;font-family:inherit"></textarea>
+
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
+      <button class="btn-primary" id="pfSave" onclick="saveProfile()">Lưu vai trò</button>
+      <button class="btn-ghost" onclick="togglePreview()">Xem AI được dặn gì</button>
+      <span id="pfNote" style="font-size:14px;color:var(--muted)"></span>
+    </div>
+    <pre id="pfPreview" style="display:none;background:#f2f7ee;padding:14px;border-radius:10px;font-size:12.5px;white-space:pre-wrap;margin-top:12px;font-family:inherit;color:#2c3a26"></pre>
+  </section>
+
   <!-- BAO CAO -->
   <section class="card">
-    <h2>3. Tạo báo cáo</h2>
+    <h2>4. Tạo báo cáo</h2>
     <p class="hint">Chọn nhanh hoặc tự chọn khoảng thời gian, rồi bấm nút. Báo cáo mở ngay trong trình duyệt.</p>
     <div class="quick">
       <button class="btn-ghost" onclick="quickRange('today')">Hôm nay (từ 0h)</button>
@@ -158,7 +192,7 @@
 
   <!-- DANH SACH -->
   <section class="card">
-    <h2>4. Báo cáo đã tạo</h2>
+    <h2>5. Báo cáo đã tạo</h2>
     <p class="hint">Chỉ hiển thị báo cáo của tài khoản đang đăng nhập. Bấm tên để mở lại; trong báo cáo tick ô vuông để đánh dấu việc đã xử lý.</p>
     <table id="reportTable"><tbody><tr><td class="hint">Chưa có báo cáo nào.</td></tr></tbody></table>
   </section>
@@ -254,6 +288,8 @@ async function refreshStatus() {
     }
 
     const on = s.status === "da_ket_noi";
+    $("profileCard").style.display = on ? "block" : "none";
+    if (on && !pfData) loadProfile();
     $("statsBox").style.display = on ? "flex" : "none";
     // Tu khoi dong cung Windows
     const au = s.autostart || {};
@@ -321,6 +357,86 @@ async function rescan() {
 }
 
 let aiNoteHold = false; // giu thong bao huong dan dang nhap, khong bi refresh ghi de ngay
+
+
+// ===== Ho so vai tro =====
+const GOI_Y_TAG = ["phê duyệt/ký", "khách hàng", "deadline", "sự cố kỹ thuật", "thanh toán/hoá đơn",
+  "hợp đồng", "nhân sự", "mẫu thử nghiệm", "chứng nhận", "khiếu nại", "thiết bị", "báo giá"];
+let pfData = null, pfRoles = [], pfTags = [];
+
+function renderRoles() {
+  const box = $("pfRoles");
+  box.innerHTML = "";
+  pfRoles.forEach((r) => {
+    const b = document.createElement("button");
+    b.className = "btn-ghost prov" + (pfData.vaiTro === r.ma ? " on" : "");
+    b.textContent = r.ten;
+    b.title = r.moTa || "";
+    b.addEventListener("click", () => { pfData.vaiTro = r.ma; renderRoles(); });
+    box.appendChild(b);
+  });
+}
+
+function renderTags() {
+  const box = $("pfTags");
+  box.innerHTML = "";
+  const all = Array.from(new Set(GOI_Y_TAG.concat(pfTags)));
+  all.forEach((t) => {
+    const b = document.createElement("button");
+    b.className = "tag-btn" + (pfTags.includes(t) ? " on" : "");
+    b.textContent = t;
+    b.addEventListener("click", () => toggleTag(t));
+    box.appendChild(b);
+  });
+}
+
+function toggleTag(t) {
+  const i = pfTags.indexOf(t);
+  if (i >= 0) pfTags.splice(i, 1); else pfTags.push(t);
+  renderTags();
+}
+
+async function loadProfile() {
+  try {
+    const r = await (await fetch("/api/profile")).json();
+    if (!r.ok) return;
+    pfData = r.profile; pfRoles = r.vaiTroList || []; pfTags = (pfData.quanTam || []).slice();
+    $("pfTen").value = pfData.hoTen || "";
+    $("pfChuc").value = pfData.chucDanh || "";
+    $("pfDonVi").value = pfData.donVi || "";
+    $("pfRieng").value = pfData.huongDanRieng || "";
+    $("pfPreview").textContent = r.xemTruoc || "";
+    $("pfBadge").textContent = pfData.daLuu ? "" : "— chưa thiết lập, AI đang dùng gợi ý tự động";
+    renderRoles(); renderTags();
+  } catch (e) {}
+}
+
+async function saveProfile() {
+  const btn = $("pfSave");
+  btn.disabled = true; $("pfNote").textContent = "Đang lưu...";
+  try {
+    const body = {
+      hoTen: $("pfTen").value, chucDanh: $("pfChuc").value, donVi: $("pfDonVi").value,
+      maDonVi: pfData?.maDonVi || "", vaiTro: pfData?.vaiTro || "quan-ly",
+      quanTam: pfTags, huongDanRieng: $("pfRieng").value,
+    };
+    const r = await (await fetch("/api/profile", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    })).json();
+    if (r.ok) {
+      pfData = r.profile;
+      $("pfPreview").textContent = r.xemTruoc || "";
+      $("pfBadge").textContent = "";
+      $("pfNote").textContent = "✓ Đã lưu — báo cáo từ giờ sẽ theo vai trò này";
+    } else { $("pfNote").textContent = r.note || "Không lưu được"; }
+  } catch (e) { $("pfNote").textContent = "Lỗi: " + e.message; }
+  btn.disabled = false;
+}
+
+function togglePreview() {
+  const el = $("pfPreview");
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
 
 let autoBusy = false;
 async function toggleAuto() {
@@ -463,6 +579,14 @@ function schedulePoll() {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(() => { refreshStatus().then(schedulePoll); }, pollMs);
 }
+
+document.getElementById("pfTagNew").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const v = e.target.value.trim();
+    if (v && !pfTags.includes(v)) { pfTags.push(v); renderTags(); }
+    e.target.value = "";
+  }
+});
 
 quickRange("today");
 refreshStatus().then(schedulePoll);

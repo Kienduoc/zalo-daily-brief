@@ -7,8 +7,9 @@ import { sendBrief } from "./mailer.js";
 import { sourceActivityHtml, pageHtml } from "./render.js";
 import { enrichAttachments } from "./enrich.js";
 import { saveReportFile } from "./reportCore.js";
+import { getProfile, buildSystemPrompt } from "./profile.js";
 
-export async function runSummary(accountId = null) {
+export async function runSummary(accountId = null, displayName = "") {
   const state = loadState();
   const today = dateKey();
 
@@ -24,7 +25,7 @@ export async function runSummary(accountId = null) {
   if (en.enriched) console.log(`Da doc noi dung ${en.enriched} dinh kem.`);
 
   console.log(`Dang tom tat ${messages.length} tin nhan...`);
-  const aiHtml = await summarize(messages);
+  const aiHtml = await summarize(messages, buildSystemPrompt(getProfile(accountId, displayName)));
   const body = sourceActivityHtml(messages) + aiHtml;
 
   // Khoang thoi gian cua brief: tu tin dau tien den tin cuoi cung trong dot

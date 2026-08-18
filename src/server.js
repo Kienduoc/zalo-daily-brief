@@ -18,6 +18,7 @@ import { backfillRange } from "./backfill.js";
 import { probeGroupHistory, probeUserHistory, probeGroupPaths, probeControl } from "./zaloRaw.js";
 import { getAutostart, setAutostart } from "./autostart.js";
 import { uptimeStart, uptimeBeat, findGaps, seedUptimeFromMessages } from "./uptime.js";
+import { getProfile, saveProfile, buildSystemPrompt, VAI_TRO } from "./profile.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -324,6 +325,7 @@ app.get("/api/status", (req, res) => {
     ai: aiState,
     job: jobState,
     autostart: (() => { try { return getAutostart(); } catch { return { supported: false }; } })(),
+    hoSo: (() => { try { return zState.uid ? { daLuu: Boolean(getProfile(zState.uid, zState.account || "").daLuu) } : null; } catch { return null; } })(),
   });
 });
 
@@ -385,6 +387,23 @@ app.post("/api/ai/logout", (req, res) => {
   execFile(isClaude ? CLAUDE_CMD : CODEX_CMD, isClaude ? ["auth", "logout"] : ["logout"], { shell: true, windowsHide: true, timeout: 30_000 }, async () => {
     res.json({ ok: true, ai: await checkAiStatus() });
   });
+});
+
+// Ho so vai tro cua nguoi dang dang nhap
+app.get("/api/profile", (req, res) => {
+  if (!zState.uid) return res.status(400).json({ ok: false, note: "Chưa kết nối Zalo." });
+  const pf = getProfile(zState.uid, zState.account || "");
+  res.json({ ok: true, profile: pf, vaiTroList: Object.entries(VAI_TRO).map(([k, v]) => ({ ma: k, ten: v.ten, moTa: v.moTa })), xemTruoc: buildSystemPrompt(pf) });
+});
+
+app.post("/api/profile", (req, res) => {
+  if (!zState.uid) return res.status(400).json({ ok: false, note: "Chưa kết nối Zalo." });
+  try {
+    const pf = saveProfile(zState.uid, req.body || {});
+    res.json({ ok: true, profile: pf, xemTruoc: buildSystemPrompt(pf) });
+  } catch (e) {
+    res.status(400).json({ ok: false, note: String(e?.message || e) });
+  }
 });
 
 // Bat/tat tu khoi dong cung Windows
@@ -482,7 +501,7 @@ app.post("/api/report", async (req, res) => {
 
     // Buoc 2: tom tat
     jobState = { phase: "summarize", done: 0, total: 0, note: "AI đang đọc và tóm tắt..." };
-    const r = await runRangeReport(from, to, { email: Boolean(req.body?.email), accountId: zState.uid });
+    const r = await runRangeReport(from, to, { email: Boolean(req.body?.email), accountId: zState.uid, displayName: zState.account || "" });
     if (bf && bf.ok && !bf.unavailable) r.backfill = { groups: bf.groups, added: bf.added, ms: bf.ms };
     try { r.coverage = findGaps(from.getTime(), to.getTime()); } catch { /* bo qua */ }
     res.json(r);
@@ -502,7 +521,7 @@ async function boot() {
   const cronExpr = process.env.SUMMARY_CRON || "0 18 * * 1-5";
   cron.schedule(cronExpr, () => {
     console.log("== Chay tom tat theo lich ==");
-    runSummary(zState.uid).catch((e) => console.error("Loi tom tat:", e.message));
+    runSummary(zState.uid, zState.account || "").catch((e) => console.error("Loi tom tat:", e.message));
   }, { timezone: process.env.TZ || "Asia/Ho_Chi_Minh" });
 
   const srv = app.listen(PORT, "127.0.0.1", () => {
