@@ -8,12 +8,13 @@ import { spawn } from "child_process";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { getProvider } from "./appConfig.js";
 
-const PROVIDER = (process.env.LLM_PROVIDER || "claude-code").trim();
 const BASE_URL = process.env.LLM_BASE_URL;
 const API_KEY = process.env.LLM_API_KEY;
 const MODEL = process.env.LLM_MODEL;
 const CLAUDE_CMD = process.env.CLAUDE_CMD || "claude";
+const CODEX_CMD = process.env.CODEX_CMD || "codex";
 
 const SYSTEM_PROMPT = `Bạn là thư ký AI riêng của anh Kiên (tên hiển thị trên Zalo: "Pgl Mr Kiên Ttđc"), lãnh đạo Trung tâm Điều hành Công ty Phúc Gia.
 Nhiệm vụ DUY NHẤT: đọc log tin nhắn các nhóm Zalo và tin nhắn cá nhân trong khoảng thời gian, rồi bóc tách CHO ANH KIÊN theo đúng góc nhìn của anh.
@@ -74,6 +75,54 @@ function stripFence(s) {
   return s.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim();
 }
 
+// ===== Nguon 1b: OpenAI Codex CLI (tai khoan ChatGPT, OAuth) =====
+// Dung -o <file> de lay dung cau tra loi cuoi, khong lan tap log tien trinh.
+function runCodex(prompt, { timeoutMs = 300_000, images = [] } = {}) {
+  return new Promise((resolve, reject) => {
+    const outFile = path.join(os.tmpdir(), `zbrief-codex-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
+    const args = ["exec", "--skip-git-repo-check", "-o", `"${outFile}"`];
+    for (const img of images) args.push("-i", `"${img}"`);
+    args.push("-"); // prompt doc tu stdin
+
+    const child = spawn(CODEX_CMD, args, { shell: true, windowsHide: true });
+    let err = "";
+    const killTree = () => {
+      if (process.platform === "win32" && child.pid) {
+        spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { windowsHide: true });
+      } else {
+        child.kill("SIGKILL");
+      }
+    };
+    const timer = setTimeout(() => {
+      killTree();
+      reject(new Error("ChatGPT xử lý quá lâu (quá " + Math.round(timeoutMs / 1000) + " giây). Thử khoảng thời gian ngắn hơn."));
+    }, timeoutMs);
+
+    child.stdout.on("data", () => {}); // log tien trinh, bo qua
+    child.stderr.on("data", (d) => (err += d));
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      reject(new Error("Không chạy được Codex trên máy này (" + e.message + "). Cài bằng: npm install -g @openai/codex"));
+    });
+    child.on("close", () => {
+      clearTimeout(timer);
+      let out = "";
+      try {
+        out = fs.readFileSync(outFile, "utf8").trim();
+        fs.unlink(outFile, () => {});
+      } catch { /* khong co file = that bai */ }
+      if (out) return resolve(out);
+      const low = err.toLowerCase();
+      if (/log ?in|log ?out|token|unauthorized|credential/.test(low)) {
+        return reject(new Error("Máy này chưa đăng nhập ChatGPT (hoặc phiên hết hạn). Bấm nút Đăng nhập AI, chọn ChatGPT và đăng nhập lại."));
+      }
+      reject(new Error("ChatGPT báo lỗi: " + (err || "không rõ").slice(0, 300)));
+    });
+    child.stdin.write(prompt);
+    child.stdin.end();
+  });
+}
+
 // ===== Nguon 2: endpoint HTTP tuong thich OpenAI =====
 async function chatOpenAI(messages, { maxTokens, timeoutMs = 300_000 } = {}) {
   const res = await fetch(`${BASE_URL}/chat/completions`, {
@@ -119,10 +168,10 @@ export async function summarize(messages) {
     }
   }
 
-  if (PROVIDER === "claude-code") {
-    const out = await runClaude(`${SYSTEM_PROMPT}\n\n=== LOG TIN NHAN ===\n${logText}`);
-    return stripFence(out);
-  }
+  const provider = getProvider();
+  const fullPrompt = `${SYSTEM_PROMPT}\n\n=== LOG TIN NHAN ===\n${logText}`;
+  if (provider === "claude-code") return stripFence(await runClaude(fullPrompt));
+  if (provider === "codex") return stripFence(await runCodex(fullPrompt));
   return chatOpenAI([
     { role: "system", content: SYSTEM_PROMPT },
     { role: "user", content: `Log tin nhan:\n${logText}` },
@@ -133,12 +182,16 @@ export async function summarize(messages) {
 export async function describeImage(base64, mime) {
   const ask = "Mô tả ngắn gọn (1-3 câu) nội dung ảnh bằng tiếng Việt, tập trung thông tin công việc: chữ trong ảnh, số liệu, tên chứng từ, nội dung chính. Nếu là ảnh chụp văn bản, trích ý chính.";
 
-  if (PROVIDER === "claude-code") {
-    // Ghi anh ra file tam roi nho Claude doc bang tool Read
+  const provider = getProvider();
+  if (provider === "claude-code" || provider === "codex") {
+    // Ghi anh ra file tam roi dua cho CLI doc
     const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
-    const tmp = path.join(os.tmpdir(), `zbrief-img-${Date.now()}.${ext}`);
+    const tmp = path.join(os.tmpdir(), `zbrief-img-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`);
     fs.writeFileSync(tmp, Buffer.from(base64, "base64"));
     try {
+      if (provider === "codex") {
+        return stripFence(await runCodex(`${ask}\nChỉ trả lời phần mô tả, không kèm gì khác.`, { timeoutMs: 120_000, images: [tmp] }));
+      }
       const out = await runClaude(`Đọc ảnh tại đường dẫn "${tmp}" rồi trả lời: ${ask}\nChỉ trả lời phần mô tả, không kèm gì khác.`, {
         timeoutMs: 120_000,
         extraArgs: ["--allowedTools", "Read"],

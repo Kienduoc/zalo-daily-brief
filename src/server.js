@@ -65,26 +65,46 @@ function startScanLoop() {
   scanTimer = setInterval(runAccountScan, SCAN_MINUTES * 60 * 1000);
 }
 
-// ===== Trang thai dang nhap BO NAO AI =====
-const LLM_PROVIDER = (process.env.LLM_PROVIDER || "claude-code").trim();
+// ===== Trang thai dang nhap BO NAO AI (chon duoc Claude / ChatGPT) =====
+import { getProvider, setProvider } from "./appConfig.js";
 const CLAUDE_CMD = process.env.CLAUDE_CMD || "claude";
-let aiState = { provider: LLM_PROVIDER, ready: false, detail: "Chưa kiểm tra", checkedAt: null };
+const CODEX_CMD = process.env.CODEX_CMD || "codex";
+let aiState = { provider: getProvider(), ready: false, detail: "Chưa kiểm tra", checkedAt: null };
 
 function checkAiStatus() {
+  const provider = getProvider();
   return new Promise((resolve) => {
-    if (LLM_PROVIDER !== "claude-code") {
+    if (provider === "openai") {
       const ok = Boolean(process.env.LLM_BASE_URL && process.env.LLM_API_KEY);
       aiState = {
-        provider: LLM_PROVIDER, ready: ok, checkedAt: Date.now(),
+        provider, ready: ok, checkedAt: Date.now(),
         detail: ok ? "Endpoint: " + process.env.LLM_BASE_URL : "Chưa điền LLM_BASE_URL/LLM_API_KEY trong .env",
       };
       return resolve(aiState);
     }
+    if (provider === "codex") {
+      execFile(CODEX_CMD, ["login", "status"], { shell: true, windowsHide: true, timeout: 30_000 }, (err, stdout, stderr) => {
+        const txt = String(stdout || "") + String(stderr || "");
+        const loggedIn = !err && /logged in/i.test(txt);
+        const notInstalled = err && /not recognized|ENOENT|command not found/i.test(String(err.message || "") + txt);
+        aiState = {
+          provider, ready: loggedIn, checkedAt: Date.now(),
+          detail: loggedIn
+            ? "Đã đăng nhập ChatGPT" + (/using chatgpt/i.test(txt) ? " (tài khoản ChatGPT)" : "")
+            : notInstalled
+              ? "Chưa cài Codex trên máy — bấm Đăng nhập AI để cài và đăng nhập."
+              : "Chưa đăng nhập ChatGPT — bấm nút Đăng nhập AI.",
+        };
+        resolve(aiState);
+      });
+      return;
+    }
+    // claude-code
     execFile(CLAUDE_CMD, ["auth", "status"], { shell: true, windowsHide: true, timeout: 30_000 }, (err, stdout) => {
       try {
         const s = JSON.parse(String(stdout || "").trim());
         aiState = {
-          provider: "claude-code",
+          provider,
           ready: Boolean(s.loggedIn),
           email: s.email || null,
           org: s.orgName || null,
@@ -96,8 +116,8 @@ function checkAiStatus() {
         };
       } catch {
         aiState = {
-          provider: "claude-code", ready: false, checkedAt: Date.now(),
-          detail: err ? "Chưa cài Claude Code trên máy (npm install -g @anthropic-ai/claude-code)" : "Không đọc được trạng thái đăng nhập.",
+          provider, ready: false, checkedAt: Date.now(),
+          detail: err ? "Chưa cài Claude Code trên máy — bấm Đăng nhập AI để cài và đăng nhập." : "Không đọc được trạng thái đăng nhập.",
         };
       }
       resolve(aiState);
@@ -316,16 +336,46 @@ app.post("/api/ai/check", async (req, res) => {
   res.json(await checkAiStatus());
 });
 
-// Mo cua so dang nhap OAuth cho bo nao AI (Claude) — nguoi dung lam theo huong dan trong cua so do
+// Doi nha cung cap AI (claude-code | codex | openai)
+app.post("/api/ai/provider", async (req, res) => {
+  try {
+    setProvider(String(req.body?.provider || ""));
+    res.json({ ok: true, ai: await checkAiStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, note: e.message });
+  }
+});
+
+// Mo cua so dang nhap OAuth cho bo nao AI — tu cai CLI neu may chua co
 app.post("/api/ai/login", (req, res) => {
-  if (LLM_PROVIDER !== "claude-code") {
+  const provider = getProvider();
+  if (provider === "openai") {
     return res.status(400).json({ ok: false, note: "Đang dùng endpoint HTTP — điền LLM_BASE_URL/LLM_API_KEY trong .env thay vì đăng nhập OAuth." });
   }
+  const isClaude = provider === "claude-code";
+  const label = isClaude ? "Claude" : "ChatGPT";
+  const cmd = isClaude ? CLAUDE_CMD : CODEX_CMD;
+  const pkg = isClaude ? "@anthropic-ai/claude-code" : "@openai/codex";
+  const loginArgs = isClaude ? "auth login" : "login";
   if (process.platform !== "win32") {
-    return res.status(400).json({ ok: false, note: "Mở cửa sổ lệnh và chạy: claude auth login" });
+    return res.status(400).json({ ok: false, note: `Mở cửa sổ lệnh và chạy: ${cmd} ${loginArgs}` });
   }
-  exec(`start "Dang nhap Claude AI" cmd /k "echo DANG NHAP BO NAO AI (Claude) - lam theo huong dan duoi day: && ${CLAUDE_CMD} auth login && echo. && echo XONG! Dong cua so nay va quay lai phan mem, bam Kiem tra lai."`, { shell: "cmd.exe" });
-  res.json({ ok: true, note: "Đã mở cửa sổ đăng nhập. Làm theo hướng dẫn trong đó (trình duyệt sẽ mở trang đăng nhập Claude), xong quay lại bấm Kiểm tra lại." });
+  // Neu CLI chua co thi cai truoc roi dang nhap — tat ca hien trong cua so de nguoi dung theo doi
+  exec(
+    `start "Dang nhap ${label}" cmd /k "echo DANG NHAP BO NAO AI (${label}) && (where ${cmd} >nul 2>&1 || (echo Dang cai cong cu ${label}... && npm install -g ${pkg})) && ${cmd} ${loginArgs} && echo. && echo XONG! Dong cua so nay, quay lai phan mem va bam Kiem tra lai."`,
+    { shell: "cmd.exe" }
+  );
+  res.json({ ok: true, note: `Đã mở cửa sổ đăng nhập ${label}. Làm theo hướng dẫn (trình duyệt sẽ mở trang đăng nhập), xong quay lại bấm Kiểm tra lại.` });
+});
+
+// Dang xuat tai khoan AI hien tai (de doi sang tai khoan khac)
+app.post("/api/ai/logout", (req, res) => {
+  const provider = getProvider();
+  if (provider === "openai") return res.status(400).json({ ok: false, note: "Endpoint HTTP không có đăng nhập/đăng xuất." });
+  const isClaude = provider === "claude-code";
+  execFile(isClaude ? CLAUDE_CMD : CODEX_CMD, isClaude ? ["auth", "logout"] : ["logout"], { shell: true, windowsHide: true, timeout: 30_000 }, async () => {
+    res.json({ ok: true, ai: await checkAiStatus() });
+  });
 });
 
 // Dang nhap lai tu dau: ngat phien hien tai, xoa session cu, phat QR moi

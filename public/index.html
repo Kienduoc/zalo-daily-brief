@@ -28,6 +28,8 @@
   .btn-primary:hover:not(:disabled) { background:#5aa437; }
   .btn-blue { background:var(--blue); color:#fff; }
   .btn-ghost { background:#eef3ea; color:var(--text); font-weight:500; padding:10px 14px; font-size:14px; }
+  .prov { font-size:15px; padding:12px 20px; border:2px solid transparent; }
+  .prov.on { background:#e8f5df; border-color:var(--green); color:#2c7a10; font-weight:700; }
   .qr-box { text-align:center; padding:10px; }
   .qr-box img { width:240px; height:240px; border:6px solid #eef3ea; border-radius:12px; }
   .steps { text-align:left; display:inline-block; margin:10px auto 0; color:var(--muted); font-size:14px; line-height:1.9; }
@@ -105,11 +107,16 @@
   <!-- BO NAO AI -->
   <section class="card">
     <h2>2. Bộ não AI</h2>
-    <p class="hint">AI đọc và tóm tắt tin nhắn. Đăng nhập một lần bằng tài khoản Claude (OAuth) — không cần API key.</p>
+    <p class="hint">Chọn AI rồi đăng nhập bằng chính tài khoản của bạn (OAuth) — không cần API key. Đổi tài khoản lúc nào cũng được.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn-ghost prov" id="provClaude" onclick="setProv('claude-code')">🟠 Claude</button>
+      <button class="btn-ghost prov" id="provCodex" onclick="setProv('codex')">🟢 ChatGPT</button>
+    </div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span id="aiStatus" style="font-weight:600">Đang kiểm tra...</span>
       <button class="btn-ghost" onclick="aiCheck()">Kiểm tra lại</button>
-      <button class="btn-blue" id="btnAiLogin" onclick="aiLogin()" style="display:none">Đăng nhập AI (OAuth)</button>
+      <button class="btn-blue" id="btnAiLogin" onclick="aiLogin()">Đăng nhập / Đổi tài khoản</button>
+      <button class="btn-ghost" id="btnAiLogout" onclick="aiLogout()" style="display:none">Đăng xuất</button>
     </div>
     <div class="note" id="aiNote"></div>
   </section>
@@ -267,11 +274,14 @@ async function refreshStatus() {
     // Trang thai bo nao AI
     if (s.ai) {
       const ai = s.ai;
+      $("provClaude").classList.toggle("on", ai.provider === "claude-code");
+      $("provCodex").classList.toggle("on", ai.provider === "codex");
+      const who = ai.email ? ' — ' + ai.email + (ai.org ? ' (' + ai.org + ')' : '') : (ai.ready && ai.provider === "codex" ? ' — tài khoản ChatGPT' : '');
       $("aiStatus").innerHTML = ai.ready
-        ? '<span style="color:#2c7a10">✓ Sẵn sàng</span>' + (ai.email ? ' — ' + ai.email + (ai.org ? ' (' + ai.org + ')' : '') : '')
+        ? '<span style="color:#2c7a10">✓ Sẵn sàng</span>' + who
         : '<span style="color:#c0392b">✗ Chưa sẵn sàng</span>';
-      $("aiNote").textContent = ai.ready ? "" : ai.detail || "";
-      $("btnAiLogin").style.display = (!ai.ready && ai.provider === "claude-code") ? "inline-block" : "none";
+      if (!aiNoteHold) $("aiNote").textContent = ai.ready ? "" : ai.detail || "";
+      $("btnAiLogout").style.display = ai.ready && ai.provider !== "openai" ? "inline-block" : "none";
     }
   } catch (e) { $("statusText").textContent = "Mất kết nối với phần mềm — kiểm tra cửa sổ đen có đang chạy không."; }
 }
@@ -289,15 +299,40 @@ async function rescan() {
   b.disabled = false; b.textContent = "Quét lại ngay";
 }
 
+let aiNoteHold = false; // giu thong bao huong dan dang nhap, khong bi refresh ghi de ngay
+
 async function aiCheck() {
+  aiNoteHold = false;
   $("aiStatus").textContent = "Đang kiểm tra...";
   try { await fetch("/api/ai/check", { method: "POST" }); } catch (e) {}
+  refreshStatus();
+}
+
+async function setProv(p) {
+  aiNoteHold = false;
+  $("aiStatus").textContent = "Đang chuyển...";
+  try {
+    await fetch("/api/ai/provider", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: p }),
+    });
+  } catch (e) {}
   refreshStatus();
 }
 
 async function aiLogin() {
   const r = await (await fetch("/api/ai/login", { method: "POST" })).json();
   $("aiNote").textContent = r.note || "";
+  aiNoteHold = true;
+  setTimeout(() => { aiNoteHold = false; }, 60000);
+}
+
+async function aiLogout() {
+  if (!confirm("Đăng xuất tài khoản AI hiện tại? Sau đó bạn có thể đăng nhập tài khoản khác.")) return;
+  aiNoteHold = false;
+  $("aiStatus").textContent = "Đang đăng xuất...";
+  try { await fetch("/api/ai/logout", { method: "POST" }); } catch (e) {}
+  refreshStatus();
 }
 
 async function relogin() {
