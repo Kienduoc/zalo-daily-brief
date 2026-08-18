@@ -33,7 +33,7 @@ function safeName(name) {
 
 // Ghi 1 tin nhan da lam sach vao ca 2 dinh dang. attach (tuy chon): { kind, href, title }.
 // account: uid tai khoan Zalo dang thu tin — de tach bao cao theo tung tai khoan.
-export function appendMessage({ ts, threadId, groupName, sender, text, attach, account }) {
+export function appendMessage({ ts, threadId, groupName, sender, text, attach, account, msgId }) {
   const day = dateKey(new Date(ts));
 
   // 1) Markdown de con nguoi doc / Obsidian
@@ -46,8 +46,44 @@ export function appendMessage({ ts, threadId, groupName, sender, text, attach, a
   const record = { ts, threadId, groupName, sender, text };
   if (attach && attach.href) record.attach = attach;
   if (account) record.account = account;
+  if (msgId) record.msgId = msgId;
   const jsonlFile = path.join(MSG_DIR, `${day}.jsonl`);
   fs.appendFileSync(jsonlFile, JSON.stringify(record) + "\n");
+}
+
+// Tap hop khoa cua tin da co trong 1 ngay — dung de chong ghi trung khi keo lich su ve.
+export function getExistingKeys(day) {
+  const jsonlFile = path.join(MSG_DIR, day + ".jsonl");
+  const keys = new Set();
+  if (!fs.existsSync(jsonlFile)) return keys;
+  for (const line of fs.readFileSync(jsonlFile, "utf8").split(/\r?\n/)) {
+    if (!line) continue;
+    try {
+      const m = JSON.parse(line);
+      if (m.msgId) keys.add(String(m.msgId));
+      keys.add(m.ts + "|" + m.sender + "|" + String(m.text).slice(0, 40));
+    } catch { /* bo qua dong hong */ }
+  }
+  return keys;
+}
+
+// Ghi hang loat, tu bo qua tin da co. Tra ve so tin thuc su duoc them.
+export function appendMessagesDedup(records) {
+  const cache = new Map();
+  let added = 0;
+  for (const r of records) {
+    const day = dateKey(new Date(r.ts));
+    if (!cache.has(day)) cache.set(day, getExistingKeys(day));
+    const keys = cache.get(day);
+    const k1 = r.msgId ? String(r.msgId) : null;
+    const k2 = r.ts + "|" + r.sender + "|" + String(r.text).slice(0, 40);
+    if ((k1 && keys.has(k1)) || keys.has(k2)) continue;
+    appendMessage(r);
+    if (k1) keys.add(k1);
+    keys.add(k2);
+    added++;
+  }
+  return added;
 }
 
 // Tin thuoc tai khoan? Tin cu (chua co truong account) coi nhu dung chung.

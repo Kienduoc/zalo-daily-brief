@@ -57,7 +57,7 @@ export function startListener(api, { watchAll, allowedThreadIds, accountId = nul
         ? await resolveGroupName(api, threadId)
         : `[Ca nhan] ${sender}`;
 
-      appendMessage({ ts, threadId, groupName: label, sender, text, attach, account: accountId });
+      appendMessage({ ts, threadId, groupName: label, sender, text, attach, account: accountId, msgId: msg.data?.msgId });
 
       // Cap nhat danh ba hoi thoai da thay (phuc vu discovery)
       const state = loadState();

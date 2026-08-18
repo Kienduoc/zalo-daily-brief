@@ -14,6 +14,7 @@ import { runSummary } from "./summarize.js";
 import { runRangeReport } from "./reportCore.js";
 import { loadState, dateKey } from "./storage.js";
 import { scanAccount } from "./accountScan.js";
+import { backfillRange } from "./backfill.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -315,6 +316,7 @@ app.get("/api/status", (req, res) => {
     scanMinutes: SCAN_MINUTES,
     scanBusy: Boolean(currentScan),
     ai: aiState,
+    job: jobState,
   });
 });
 
@@ -378,6 +380,25 @@ app.post("/api/ai/logout", (req, res) => {
   });
 });
 
+// Keo lich su nhom ve theo khoang thoi gian (chay tay)
+app.post("/api/backfill", async (req, res) => {
+  if (!apiInstance) return res.status(400).json({ ok: false, note: "Chưa kết nối Zalo." });
+  const from = new Date(req.body?.from), to = new Date(req.body?.to);
+  if (isNaN(from) || isNaN(to) || from > to) return res.status(400).json({ ok: false, note: "Khoảng thời gian không hợp lệ." });
+  try {
+    jobState = { phase: "backfill", done: 0, total: 0, note: "Đang quét lịch sử nhóm..." };
+    const r = await backfillRange(apiInstance, {
+      fromTs: from.getTime(), toTs: to.getTime(), accountId: zState.uid,
+      onProgress: (p) => { jobState = { phase: "backfill", done: p.done, total: p.total, note: `Đã quét ${p.done}/${p.total} nhóm` }; },
+    });
+    res.json(r);
+  } catch (e) {
+    res.status(500).json({ ok: false, note: String(e?.message || e) });
+  } finally {
+    jobState = { phase: null, done: 0, total: 0, note: "" };
+  }
+});
+
 // Dang nhap lai tu dau: ngat phien hien tai, xoa session cu, phat QR moi
 app.post("/api/relogin", (req, res) => {
   try {
@@ -397,6 +418,9 @@ app.post("/api/relogin", (req, res) => {
   res.json({ ok: true });
 });
 
+// Tien do cong viec dai (keo lich su / tom tat) de giao dien hien thi
+let jobState = { phase: null, done: 0, total: 0, note: "" };
+
 let reportBusy = false;
 app.post("/api/report", async (req, res) => {
   if (reportBusy) return res.status(429).json({ ok: false, note: "Đang có báo cáo khác chạy, đợi chút nhé." });
@@ -408,12 +432,30 @@ app.post("/api/report", async (req, res) => {
   if (!zState.uid) return res.status(400).json({ ok: false, note: "Kết nối Zalo trước đã — báo cáo gắn với tài khoản đang đăng nhập." });
   reportBusy = true;
   try {
+    // Buoc 1: keo tin cu tu may chu Zalo ve cho dung khoang thoi gian duoc chon
+    let bf = null;
+    if (apiInstance && req.body?.skipBackfill !== true) {
+      jobState = { phase: "backfill", done: 0, total: 0, note: "Đang quét lịch sử nhóm..." };
+      try {
+        bf = await backfillRange(apiInstance, {
+          fromTs: from.getTime(), toTs: to.getTime(), accountId: zState.uid,
+          onProgress: (p) => { jobState = { phase: "backfill", done: p.done, total: p.total, note: `Đã quét ${p.done}/${p.total} nhóm` }; },
+        });
+      } catch (e) {
+        console.log("Keo lich su that bai (van tom tat tin da co):", e.message);
+      }
+    }
+
+    // Buoc 2: tom tat
+    jobState = { phase: "summarize", done: 0, total: 0, note: "AI đang đọc và tóm tắt..." };
     const r = await runRangeReport(from, to, { email: Boolean(req.body?.email), accountId: zState.uid });
+    if (bf && bf.ok) r.backfill = { groups: bf.groups, added: bf.added, ms: bf.ms };
     res.json(r);
   } catch (err) {
     res.status(500).json({ ok: false, note: "Lỗi tạo báo cáo: " + String(err?.message || err) });
   } finally {
     reportBusy = false;
+    jobState = { phase: null, done: 0, total: 0, note: "" };
   }
 });
 

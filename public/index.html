@@ -357,21 +357,34 @@ async function makeReport() {
   const from = $("fromInput").value, to = $("toInput").value;
   if (!from || !to) { err.textContent = "Chọn thời gian Từ / Đến trước đã."; return; }
   btn.disabled = true;
+  let jobPoll = null;
   try {
-    // Ra soat mot lan ngay truoc khi tom tat, de bao cao gom ca tin vua ve
-    btn.innerHTML = '<span class="spinner"></span>Đang rà soát tin mới...';
-    try { await fetch("/api/scan", { method: "POST" }); } catch (e) {}
-    await refreshStatus();
+    btn.innerHTML = '<span class="spinner"></span>Đang quét lịch sử nhóm...';
 
-    btn.innerHTML = '<span class="spinner"></span>Đang đọc và tóm tắt...';
+    // Theo doi tien do trong luc chay (keo lich su -> tom tat)
+    jobPoll = setInterval(async () => {
+      try {
+        const st = await (await fetch("/api/status")).json();
+        const j = st.job;
+        if (j && j.phase) {
+          btn.innerHTML = '<span class="spinner"></span>' +
+            (j.phase === "backfill"
+              ? (j.total ? 'Quét lịch sử ' + j.done + '/' + j.total + ' nhóm...' : 'Đang quét lịch sử nhóm...')
+              : 'AI đang đọc và tóm tắt...');
+        }
+      } catch (e) {}
+    }, 2000);
+
     const r = await (await fetch("/api/report", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, email: $("chkEmail").checked }),
     })).json();
+    clearInterval(jobPoll); jobPoll = null;
     if (!r.ok) { err.textContent = r.note || "Không tạo được báo cáo."; }
     else {
       box.style.display = "block";
-      box.innerHTML = '✓ Đã tóm tắt <b>' + r.count + ' tin</b>' +
+      box.innerHTML = (r.backfill ? '↻ Đã quét ' + r.backfill.groups + ' nhóm, lấy thêm <b>' + r.backfill.added + ' tin cũ</b>.<br>' : '') +
+        '✓ Đã tóm tắt <b>' + r.count + ' tin</b>' +
         (r.enriched ? ' (đọc ' + r.enriched + ' ảnh/tài liệu)' : '') +
         (r.mailed ? ' — đã gửi email' : '') +
         '.<br><a href="' + r.relUrl + '" target="_blank">Mở báo cáo: ' + r.label + '</a>';
@@ -379,7 +392,9 @@ async function makeReport() {
       loadReports();
     }
   } catch (e) { err.textContent = "Lỗi: " + e.message; }
+  if (jobPoll) clearInterval(jobPoll);
   btn.disabled = false; btn.textContent = "Tạo báo cáo";
+  refreshStatus();
 }
 
 async function loadReports() {
