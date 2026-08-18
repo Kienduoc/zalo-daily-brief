@@ -12,7 +12,7 @@ import { Zalo } from "zca-js";
 import { startListener } from "./listener.js";
 import { runSummary } from "./summarize.js";
 import { runRangeReport } from "./reportCore.js";
-import { loadState, dateKey } from "./storage.js";
+import { loadState, dateKey, getMessagesInRange } from "./storage.js";
 import { scanAccount } from "./accountScan.js";
 import { backfillRange } from "./backfill.js";
 import { probeGroupHistory, probeUserHistory, probeGroupPaths, probeControl } from "./zaloRaw.js";
@@ -63,6 +63,15 @@ function runAccountScan() {
     return scanData;
   })();
   return currentScan;
+}
+
+// Dem so tin trong khoang — dung de uoc luong thoi gian AI tom tat
+function countInRange(fromTs, toTs) {
+  try {
+    return getMessagesInRange(fromTs, toTs, zState.uid).length;
+  } catch {
+    return 0;
+  }
 }
 
 function startScanLoop() {
@@ -472,7 +481,25 @@ app.post("/api/relogin", (req, res) => {
 });
 
 // Tien do cong viec dai (keo lich su / tom tat) de giao dien hien thi
-let jobState = { phase: null, done: 0, total: 0, note: "" };
+let jobState = { phase: null, done: 0, total: 0, note: "", percent: 0 };
+let creepTimer = null;
+
+// Buoc AI khong bao duoc tien do that -> uoc luong theo thoi gian da troi.
+// Bo dem chi BO tien toi tran, khong bao giờ tu nhay 100% khi chua xong.
+function startCreep(fromPct, toPct, estMs) {
+  stopCreep();
+  const t0 = Date.now();
+  creepTimer = setInterval(() => {
+    const tiLe = Math.min(1, (Date.now() - t0) / estMs);
+    const muot = 1 - Math.pow(1 - tiLe, 2); // cham dan ve cuoi
+    const pct = Math.round(fromPct + (toPct - fromPct) * muot);
+    if (jobState.phase) jobState.percent = Math.max(jobState.percent, pct);
+  }, 1000);
+}
+function stopCreep() {
+  if (creepTimer) clearInterval(creepTimer);
+  creepTimer = null;
+}
 
 let reportBusy = false;
 app.post("/api/report", async (req, res) => {
@@ -485,14 +512,16 @@ app.post("/api/report", async (req, res) => {
   if (!zState.uid) return res.status(400).json({ ok: false, note: "Kết nối Zalo trước đã — báo cáo gắn với tài khoản đang đăng nhập." });
   reportBusy = true;
   try {
+    const soTin = countInRange(from.getTime(), to.getTime());
+
     // Buoc 1: keo tin cu tu may chu Zalo ve cho dung khoang thoi gian duoc chon
     let bf = null;
     if (apiInstance && req.body?.skipBackfill !== true) {
-      jobState = { phase: "backfill", done: 0, total: 0, note: "Đang quét lịch sử nhóm..." };
+      jobState = { phase: "backfill", done: 0, total: 0, note: "Đang chuẩn bị dữ liệu…", percent: 3 };
       try {
         bf = await backfillRange(apiInstance, {
           fromTs: from.getTime(), toTs: to.getTime(), accountId: zState.uid,
-          onProgress: (p) => { jobState = { phase: "backfill", done: p.done, total: p.total, note: `Đã quét ${p.done}/${p.total} nhóm` }; },
+          onProgress: (p) => { jobState = { phase: "backfill", done: p.done, total: p.total, note: `Đã quét ${p.done}/${p.total} nhóm`, percent: p.total ? 3 + Math.round((p.done / p.total) * 7) : 3 }; },
         });
       } catch (e) {
         console.log("Keo lich su that bai (van tom tat tin da co):", e.message);
@@ -500,16 +529,31 @@ app.post("/api/report", async (req, res) => {
     }
 
     // Buoc 2: tom tat
-    jobState = { phase: "summarize", done: 0, total: 0, note: "AI đang đọc và tóm tắt..." };
-    const r = await runRangeReport(from, to, { email: Boolean(req.body?.email), accountId: zState.uid, displayName: zState.account || "" });
+    jobState = { phase: "prepare", done: 0, total: 0, note: "Đang gom tin nhắn…", percent: 11 };
+    const r = await runRangeReport(from, to, {
+      email: Boolean(req.body?.email),
+      accountId: zState.uid,
+      displayName: zState.account || "",
+      onProgress: (pr) => {
+        jobState = { phase: pr.phase, done: 0, total: 0, note: pr.note || "", percent: Math.max(jobState.percent, pr.percent || 0) };
+        if (pr.phase === "summarize") {
+          // Uoc luong: 25 giay nen + 0.12 giay moi tin, toi da 4 phut
+          const est = Math.min(240000, 25000 + (soTin || 0) * 120);
+          startCreep(pr.percent || 42, 92, est);
+        } else {
+          stopCreep();
+        }
+      },
+    });
     if (bf && bf.ok && !bf.unavailable) r.backfill = { groups: bf.groups, added: bf.added, ms: bf.ms };
     try { r.coverage = findGaps(from.getTime(), to.getTime()); } catch { /* bo qua */ }
     res.json(r);
   } catch (err) {
     res.status(500).json({ ok: false, note: "Lỗi tạo báo cáo: " + String(err?.message || err) });
   } finally {
+    stopCreep();
     reportBusy = false;
-    jobState = { phase: null, done: 0, total: 0, note: "" };
+    jobState = { phase: null, done: 0, total: 0, note: "", percent: 0 };
   }
 });
 

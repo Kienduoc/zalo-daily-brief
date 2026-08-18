@@ -154,6 +154,19 @@ pre.preview{
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
 .muted{color:var(--muted);font-size:13px}
 
+.prog{margin-top:16px;display:none}
+.prog.on{display:block}
+.prog-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:8px}
+.prog-label{font-size:13.5px;font-weight:600;color:var(--text)}
+.prog-pct{font-size:19px;font-weight:700;color:var(--brand-dark);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.prog-track{height:10px;background:var(--brand-soft);border-radius:999px;overflow:hidden}
+.prog-fill{height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--brand-dark));border-radius:999px;transition:width 600ms cubic-bezier(.4,0,.2,1)}
+.prog-steps{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.prog-step{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.prog-step::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--line);flex:none;transition:background var(--t)}
+.prog-step.done::before{background:var(--brand)}
+.prog-step.now{color:var(--brand-dark);font-weight:600}
+.prog-step.now::before{background:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
 .spin{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;flex:none;display:inline-block;vertical-align:-3px}
 .btn.sec .spin{border-color:rgba(0,0,0,.15);border-top-color:var(--brand)}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -255,6 +268,20 @@ footer b{color:var(--text);font-weight:600}
         <div class="field"><label for="fromInput">Từ</label><input type="datetime-local" id="fromInput"></div>
         <div class="field"><label for="toInput">Đến</label><input type="datetime-local" id="toInput"></div>
         <button class="btn lg" id="btnReport" onclick="makeReport()">Tạo báo cáo</button>
+      </div>
+
+      <div class="prog" id="prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-live="polite">
+        <div class="prog-top">
+          <span class="prog-label" id="progLabel">Đang chuẩn bị…</span>
+          <span class="prog-pct" id="progPct">0%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+        <div class="prog-steps" id="progSteps">
+          <span class="prog-step" data-s="backfill">Chuẩn bị dữ liệu</span>
+          <span class="prog-step" data-s="enrich">Đọc ảnh &amp; tài liệu</span>
+          <span class="prog-step" data-s="summarize">AI tóm tắt</span>
+          <span class="prog-step" data-s="save">Tạo file</span>
+        </div>
       </div>
 
       <label class="check"><input type="checkbox" id="chkEmail"><span>Gửi thêm vào email <span class="muted" id="emailNote"></span></span></label>
@@ -641,6 +668,30 @@ async function saveProfile() {
 }
 function togglePreview() { $("pfPreview").hidden = !$("pfPreview").hidden; }
 
+/* ============ Thanh tien do ============ */
+const BUOC = ["backfill", "enrich", "summarize", "save"];
+const NHAN = { backfill: "Chuẩn bị dữ liệu", prepare: "Gom tin nhắn", enrich: "Đọc ảnh & tài liệu", summarize: "AI đang tóm tắt", save: "Tạo file báo cáo", mail: "Gửi email" };
+
+function progShow(on) {
+  $("prog").classList.toggle("on", on);
+  if (!on) progSet(0, "", null);
+}
+function progSet(pct, label, phase) {
+  const p = Math.max(0, Math.min(100, Math.round(pct || 0)));
+  $("progFill").style.width = p + "%";
+  $("progPct").textContent = p + "%";
+  $("prog").setAttribute("aria-valuenow", String(p));
+  if (label) $("progLabel").textContent = label;
+  // Danh dau buoc
+  const cur = phase === "prepare" ? "backfill" : phase;
+  const idx = BUOC.indexOf(cur);
+  document.querySelectorAll("#progSteps .prog-step").forEach((el) => {
+    const i = BUOC.indexOf(el.dataset.s);
+    el.classList.toggle("done", idx >= 0 && i < idx);
+    el.classList.toggle("now", idx >= 0 && i === idx);
+  });
+}
+
 /* ============ Bao cao ============ */
 async function makeReport() {
   const btn = $("btnReport"), err = $("reportError"), box = $("reportResult");
@@ -651,24 +702,23 @@ async function makeReport() {
   btn.disabled = true;
   let jobPoll = null;
   try {
-    btn.innerHTML = '<span class="spin"></span>Đang chuẩn bị…';
+    btn.innerHTML = '<span class="spin"></span>Đang chạy…';
+    progShow(true); progSet(2, "Đang chuẩn bị…", "backfill");
     jobPoll = setInterval(async () => {
       try {
         const st = await (await fetch("/api/status")).json();
         const j = st.job;
-        if (j && j.phase) {
-          btn.innerHTML = '<span class="spin"></span>' + (j.phase === "backfill"
-            ? (j.total ? "Quét " + j.done + "/" + j.total + " nhóm…" : "Đang quét lịch sử…")
-            : "AI đang tóm tắt…");
-        }
+        if (j && j.phase) progSet(j.percent, j.note || NHAN[j.phase] || "Đang xử lý…", j.phase);
       } catch (e) {}
-    }, 2000);
+    }, 1500);
 
     const r = await (await fetch("/api/report", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, email: $("chkEmail").checked }),
     })).json();
     clearInterval(jobPoll); jobPoll = null;
+    progSet(100, r.ok ? "Hoàn tất" : "Dừng lại", "save");
+    setTimeout(() => progShow(false), 1400);
 
     if (!r.ok) { err.style.display = "flex"; err.textContent = r.note || "Không tạo được báo cáo."; }
     else {
@@ -684,7 +734,7 @@ async function makeReport() {
       window.open(r.relUrl, "_blank", "noopener");
       loadReports();
     }
-  } catch (e) { err.style.display = "flex"; err.textContent = "Lỗi: " + e.message; }
+  } catch (e) { err.style.display = "flex"; err.textContent = "Lỗi: " + e.message; progShow(false); }
   if (jobPoll) clearInterval(jobPoll);
   btn.disabled = false; btn.textContent = "Tạo báo cáo";
   refreshStatus();

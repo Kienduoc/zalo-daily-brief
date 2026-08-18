@@ -104,7 +104,7 @@ async function enrichOne(m, session) {
 
 // Bo sung noi dung vao message.text cho cac tin co attach. Chay SONG SONG (3 cung luc)
 // de khong keo dai thoi gian tao bao cao. Sua truc tiep mang messages.
-export async function enrichAttachments(messages) {
+export async function enrichAttachments(messages, onProgress = null) {
   const targets = messages.filter((m) => m.attach && m.attach.href);
   if (!targets.length) return { enriched: 0, capped: 0 };
 
@@ -115,10 +115,13 @@ export async function enrichAttachments(messages) {
 
   const CONCURRENCY = 3;
   let idx = 0;
+  let done = 0;
   async function worker() {
     while (idx < queue.length) {
       const m = queue[idx++];
       if (await enrichOne(m, session)) enriched++;
+      done++;
+      if (onProgress) onProgress({ done, total: queue.length });
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));

@@ -42,7 +42,8 @@ export function saveReportFile(from, to, fullHtml, accountId) {
 }
 
 // Tao bao cao cho khoang [from, to] cua 1 tai khoan. Tra ve { ok, count, file?, relUrl?, label, note? }
-export async function runRangeReport(from, to, { email = false, accountId = null, displayName = "" } = {}) {
+export async function runRangeReport(from, to, { email = false, accountId = null, displayName = "", onProgress = null } = {}) {
+  const bao = (phase, percent, note) => { if (onProgress) onProgress({ phase, percent, note }); };
   const label = `${fmt(from)} - ${fmt(to)}`;
   const messages = getMessagesInRange(from.getTime(), to.getTime(), accountId);
 
@@ -50,15 +51,23 @@ export async function runRangeReport(from, to, { email = false, accountId = null
     return { ok: false, count: 0, label, note: "Không có tin nhắn trong khoảng thời gian này." };
   }
 
-  const en = await enrichAttachments(messages);
+  bao("enrich", 12, "Đang đọc ảnh và tài liệu đính kèm…");
+  const en = await enrichAttachments(messages, (p) => {
+    const pct = p.total ? 12 + Math.round((p.done / p.total) * 28) : 12;
+    bao("enrich", pct, `Đã đọc ${p.done}/${p.total} ảnh/tài liệu`);
+  });
+
+  bao("summarize", 42, "AI đang đọc và tóm tắt…");
   const sysPrompt = buildSystemPrompt(getProfile(accountId, displayName));
   const aiHtml = await summarize(messages, sysPrompt);
   const body = sourceActivityHtml(messages) + aiHtml;
 
+  bao("save", 95, "Đang tạo file báo cáo…");
   const saved = saveReportFile(from, to, pageHtml("Báo cáo Zalo", label, body), accountId);
 
   let mailed = false;
   if (email && process.env.SMTP_HOST) {
+    bao("mail", 97, "Đang gửi email…");
     await sendBrief({ dateStr: label, htmlBody: body });
     mailed = true;
   }
