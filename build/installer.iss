@@ -26,6 +26,8 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName={#AppName}
+SetupIconFile=..\assets\zk.ico
+UninstallDisplayIcon={app}\zk.ico
 
 [Languages]
 Name: "vi"; MessagesFile: "compiler:Default.isl"
@@ -36,12 +38,13 @@ Name: "aitools"; Description: "Cai san cong cu AI Claude (can mang, them ~1 phut
 
 [Files]
 ; Toan bo goi: runtime Node.js + ung dung + thu vien
+Source: "..\assets\zk.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\zk.ico"
 Name: "{group}\Go cai dat {#AppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\zk.ico"; Tasks: desktopicon
 
 [Run]
 ; Tuy chon: cai san cong cu AI vao thu muc rieng cua ung dung

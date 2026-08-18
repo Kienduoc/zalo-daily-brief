@@ -4,12 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Thư ký AI Zalo</title>
+<link rel="icon" type="image/svg+xml" href="/zk.svg">
+<link rel="alternate icon" href="/zk-64.png">
 <style>
   :root { --green:#6CB545; --blue:#00AEEF; --bg:#f4f6f3; --card:#fff; --text:#1e2a1a; --muted:#6b7566; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:"Segoe UI",Arial,sans-serif; background:var(--bg); color:var(--text); }
   header { background:linear-gradient(90deg,var(--green),#4e9430); color:#fff; padding:18px 24px; display:flex; align-items:center; justify-content:space-between; gap:14px; }
   .hleft { display:flex; align-items:center; gap:14px; }
+  .hlogo { width:42px; height:42px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.2); background:#fff; }
   .hprofile { display:flex; align-items:center; gap:12px; }
   .hprofile img { width:46px; height:46px; border-radius:50%; border:2.5px solid #fff; object-fit:cover; background:#dde7d6; }
   .hprofile .pname { font-weight:700; font-size:15px; }
@@ -66,6 +69,7 @@
 <body>
 <header>
   <div class="hleft">
+    <img src="/zk.svg" alt="ZK" class="hlogo">
     <div class="dot" id="dot"></div>
     <div>
       <h1>Thư ký AI Zalo</h1>
