@@ -35,6 +35,7 @@ Name: "vi"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Tao bieu tuong ngoai man hinh"; GroupDescription: "Tuy chon:"
 Name: "aitools"; Description: "Cai san cong cu AI Claude (can mang, them ~1 phut)"; GroupDescription: "Tuy chon:"; Flags: unchecked
+Name: "autostart"; Description: "Tu khoi dong cung Windows (khuyen dung - khong bo sot tin nhan)"; GroupDescription: "Tuy chon:"
 
 [Files]
 ; Toan bo goi: runtime Node.js + ung dung + thu vien
@@ -45,6 +46,22 @@ Source: "payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs creat
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\zk.ico"
 Name: "{group}\Go cai dat {#AppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\zk.ico"; Tasks: desktopicon
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  VbsPath, Content: String;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    VbsPath := ExpandConstant('{userstartup}\ThuKyAIZalo-TuKhoiDong.vbs');
+    if WizardIsTaskSelected('autostart') then
+    begin
+      Content := 'CreateObject("WScript.Shell").Run """' + ExpandConstant('{app}\ThuKyAIZalo.bat') + '""", 7, False' + #13#10;
+      SaveStringToFile(VbsPath, Content, False);
+    end;
+  end;
+end;
 
 [Run]
 ; Tuy chon: cai san cong cu AI vao thu muc rieng cua ung dung
