@@ -288,7 +288,8 @@ async function refreshStatus() {
 
 async function connect() {
   await fetch("/api/connect", { method: "POST" });
-  refreshStatus();
+  await refreshStatus();
+  schedulePoll(); // chuyen sang nhip nhanh de bat ma QR
 }
 
 async function rescan() {
@@ -341,6 +342,7 @@ async function relogin() {
   b.disabled = true; b.textContent = "Đang tạo QR mới...";
   try { await fetch("/api/relogin", { method: "POST" }); } catch (e) {}
   await refreshStatus();
+  schedulePoll(); // chuyen sang nhip nhanh de bat ma QR moi
   b.disabled = false; b.textContent = "Đăng nhập lại (QR mới)";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -351,8 +353,13 @@ async function makeReport() {
   const from = $("fromInput").value, to = $("toInput").value;
   if (!from || !to) { err.textContent = "Chọn thời gian Từ / Đến trước đã."; return; }
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Đang đọc và tóm tắt...';
   try {
+    // Ra soat mot lan ngay truoc khi tom tat, de bao cao gom ca tin vua ve
+    btn.innerHTML = '<span class="spinner"></span>Đang rà soát tin mới...';
+    try { await fetch("/api/scan", { method: "POST" }); } catch (e) {}
+    await refreshStatus();
+
+    btn.innerHTML = '<span class="spinner"></span>Đang đọc và tóm tắt...';
     const r = await (await fetch("/api/report", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, email: $("chkEmail").checked }),
@@ -384,10 +391,24 @@ async function loadReports() {
   } catch (e) {}
 }
 
+// ===== Nhip tu cap nhat trang thai =====
+// Nhanh (2,5 giay) CHI khi dang quet QR / dang ket noi — luc do can phan hoi tuc thi.
+// Cham (5 phut) khi da ket noi on dinh — tranh goi server lien tuc.
+const POLL_FAST = 2500, POLL_SLOW = 300000;
+let pollTimer = null, pollMs = 0;
+
+function schedulePoll() {
+  const st = lastStatus ? lastStatus.status : null;
+  const want = (st === "cho_quet" || st === "dang_ket_noi" || st === null) ? POLL_FAST : POLL_SLOW;
+  if (want === pollMs && pollTimer) return; // giu nguyen nhip hien tai
+  pollMs = want;
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => { refreshStatus().then(schedulePoll); }, pollMs);
+}
+
 quickRange("today");
-refreshStatus(); loadReports();
-setInterval(refreshStatus, 2500);
-setInterval(loadReports, 15000);
+refreshStatus().then(schedulePoll);
+loadReports();
 </script>
 </body>
 </html>
