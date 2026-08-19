@@ -9,7 +9,7 @@ import { exec, execFile } from "child_process";
 import express from "express";
 import cron from "node-cron";
 import { Zalo } from "zca-js";
-import { startListener } from "./listener.js";
+import { startListener, getLinkHealth } from "./listener.js";
 import { runSummary } from "./summarize.js";
 import { runRangeReport } from "./reportCore.js";
 import { loadState, dateKey, getMessagesInRange } from "./storage.js";
@@ -38,6 +38,7 @@ const zState = {
   connectedAt: null,
 };
 let apiInstance = null;
+let linkState = { alive: true, since: null, closed: false };
 let loginInFlight = false;
 
 // ===== Quet tai khoan dinh ky (mac dinh 5 phut/lan) =====
@@ -152,7 +153,17 @@ function loadAllowedThreadIds() {
 
 function attachListener(api) {
   const watchAll = String(process.env.WATCH_ALL_GROUPS || "true") === "true";
-  startListener(api, { watchAll, allowedThreadIds: loadAllowedThreadIds(), accountId: zState.uid });
+  startListener(api, {
+    watchAll, allowedThreadIds: loadAllowedThreadIds(), accountId: zState.uid,
+    onHealth: (h) => {
+      linkState = { alive: Boolean(h.alive), since: h.at, closed: Boolean(h.closed), code: h.code || null };
+      // Bi dong han (vd tai khoan dang nhap noi khac) -> thu dang nhap lai bang session da luu
+      if (h.closed) {
+        console.log("Duong truyen dong han — thu ket noi lai bang session da luu sau 10 giay...");
+        setTimeout(() => { trySessionLogin().catch(() => {}); }, 10000);
+      }
+    },
+  });
 }
 
 function markConnected(api, name) {
@@ -334,6 +345,7 @@ app.get("/api/status", (req, res) => {
     ai: aiState,
     job: jobState,
     autostart: (() => { try { return getAutostart(); } catch { return { supported: false }; } })(),
+    link: linkState,
     hoSo: (() => { try { return zState.uid ? { daLuu: Boolean(getProfile(zState.uid, zState.account || "").daLuu) } : null; } catch { return null; } })(),
   });
 });

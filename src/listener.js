@@ -23,7 +23,14 @@ async function resolveGroupName(api, threadId) {
   return name;
 }
 
-export function startListener(api, { watchAll, allowedThreadIds, accountId = null }) {
+let lastConnected = null;
+let lastClose = null;
+
+export function getLinkHealth() {
+  return { lastConnected, lastClose };
+}
+
+export function startListener(api, { watchAll, allowedThreadIds, accountId = null, onHealth = null }) {
   api.listener.on("message", async (msg) => {
     try {
       // Bo qua tin do chinh anh Kien (tai khoan nay) gui di
@@ -71,6 +78,26 @@ export function startListener(api, { watchAll, allowedThreadIds, accountId = nul
     }
   });
 
-  api.listener.start();
-  console.log("Dang lang nghe (che do CHI DOC)...");
+  // Su kien duong truyen — de biet khi mat ket noi va tu hoi phuc
+  api.listener.on("connected", () => {
+    lastConnected = Date.now(); lastClose = null;
+    console.log("Duong truyen Zalo: da ket noi.");
+    if (onHealth) onHealth({ alive: true, at: lastConnected });
+  });
+  api.listener.on("disconnected", (code, reason) => {
+    console.log("Duong truyen Zalo: mat ket noi (" + code + ") " + (reason || "") + " - dang thu noi lai...");
+    if (onHealth) onHealth({ alive: false, code, at: Date.now() });
+  });
+  api.listener.on("closed", (code, reason) => {
+    lastClose = { code, reason, at: Date.now() };
+    console.log("Duong truyen Zalo: DA DONG han (" + code + ") " + (reason || ""));
+    if (onHealth) onHealth({ alive: false, closed: true, code, at: Date.now() });
+  });
+  api.listener.on("error", (e) => {
+    console.log("Duong truyen Zalo loi:", String(e && e.message ? e.message : e).slice(0, 120));
+  });
+
+  // retryOnClose: thu vien tu noi lai khi rot mang hoac may ngu roi tinh day
+  api.listener.start({ retryOnClose: true });
+  console.log("Dang lang nghe (CHI DOC, tu noi lai khi mat ket noi)...");
 }

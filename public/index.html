@@ -224,6 +224,13 @@ footer b{color:var(--text);font-weight:600}
       </div>
     </div>
 
+    <div class="card" id="linkWarn" hidden style="border-color:#F0C778;background:var(--warn-soft)">
+      <div class="alert warn" style="margin-top:0;background:transparent;padding:0">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <div><b>Đường truyền Zalo đang gián đoạn</b> — phần mềm đang tự nối lại. Tin nhắn trong lúc này có thể bị bỏ sót.</div>
+      </div>
+    </div>
+
     <div class="card" id="scanCard" hidden>
       <div class="card-head">
         <div class="grow">
@@ -452,7 +459,9 @@ async function refreshStatus() {
 
     const info = PILL[s.status] || ["off", s.status];
     $("pill").className = "pill " + info[0];
-    $("pillText").textContent = on ? "Đang hoạt động (chỉ đọc)" : info[1];
+    const linkDut = on && s.link && s.link.alive === false;
+    if (linkDut) $("pill").className = "pill wait";
+    $("pillText").textContent = linkDut ? "Mất đường truyền — đang nối lại" : (on ? "Đang hoạt động (chỉ đọc)" : info[1]);
 
     const prof = s.scan && s.scan.profile;
     $("who").hidden = !(on && prof);
@@ -462,6 +471,8 @@ async function refreshStatus() {
       $("whoRole").textContent = (pfData && (pfData.chucDanh || pfData.donVi)) || prof.phone || "";
     }
 
+    const link = s.link || {};
+    $("linkWarn").hidden = !(on && link.alive === false);
     $("needSetup").hidden = on;
     $("scanCard").hidden = !on;
     $("reportCard").hidden = !on;
